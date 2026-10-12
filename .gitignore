@@ -1,0 +1,20 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 用户数据(转写结果/上传文件/设置,含 API Key)
+data/
+
+# 本地模型(约 9GB,首次运行自动下载,不入库)
+models/
+
+# macOS 本地启动器(applet 二进制,机器相关)
+听悟 Lite.app/
+nohup.out
+*.log
+
+# 环境与密钥
+.env
+.envrc
+.DS_Store

@@ -1,0 +1,41 @@
+[project]
+name = "tingwu-local"
+version = "0.1.0"
+description = "本地开源的语音转写与 AI 笔记工具(通义听悟式体验),Apple Silicon 全本地推理,数据不出机器"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "rennylf" }]
+keywords = [
+    "transcription", "asr", "whisper", "mlx", "apple-silicon",
+    "meeting-notes", "subtitle", "obsidian", "local-first",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: MacOS X",
+    "Framework :: FastAPI",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    "mlx-whisper>=0.4.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.9.0",
+    "funasr>=1.4.16",
+    "kaldi-native-fbank>=1.22.3",
+    "mlx-lm>=0.31.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/rennylf/tingwu-local"
+Repository = "https://github.com/rennylf/tingwu-local"
+Issues = "https://github.com/rennylf/tingwu-local/issues"
+
+[tool.uv]
+package = false

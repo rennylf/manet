@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>听悟 Lite · 本地音视频转写与笔记</title>
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= 侧边栏 ================= -->
+  <aside id="sidebar">
+    <div class="logo">🎙️ 听悟<span>Lite</span></div>
+    <button id="btn-side-upload" class="btn primary side-btn">＋ 上传音视频</button>
+    <button class="btn side-btn soon" disabled title="路线图功能">🎧 实时录音 · 即将上线</button>
+    <div id="nav-home" class="nav-item active">📚 内容库</div>
+    <div id="nav-settings" class="nav-item">⚙️ 设置</div>
+    <div class="side-search">
+      <input id="search-input" type="search" placeholder="搜索录音…">
+    </div>
+    <div id="side-list" class="side-list"></div>
+    <div class="side-foot">本地引擎 · 数据不出机器</div>
+  </aside>
+
+  <!-- ================= 内容区 ================= -->
+  <main id="main">
+
+    <!-- ---------- 内容库(首页) ---------- -->
+    <section id="view-home" class="view">
+      <div class="home-scroll">
+        <div id="dropzone" class="home-hero">
+          <div class="dz-icon">📁</div>
+          <h2>拖入音视频文件,或 <span class="link">点击选择</span></h2>
+          <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv 等,最大 2GB<br>
+          转写、标点、笔记全部在本机完成</p>
+        </div>
+        <div class="home-options">
+          <div class="muted" style="font-size:12px">
+            选择文件后设置转写参数,确认即开始;你的选择会被记住。
+          </div>
+        </div>
+        <div class="home-list-head">
+          <h3>全部录音</h3>
+          <span id="home-count" class="count"></span>
+          <div class="spacer"></div>
+          <button id="btn-new-folder" class="btn ghost sm">📁 新建文件夹</button>
+        </div>
+        <div id="folder-bar" class="folder-bar"></div>
+        <div id="home-grid" class="card-grid"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 详情页(工作台) ---------- -->
+    <section id="view-detail" class="view" hidden>
+
+      <!-- 顶栏:返回 + 标题 + 操作 -->
+      <div class="detail-topbar">
+        <button id="btn-back" class="icon-btn" title="返回内容库">←</button>
+        <div class="title-block">
+          <h2 id="detail-title" contenteditable="plaintext-only" title="点击可改名"></h2>
+          <div id="detail-meta"></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="btn-mindmap" class="btn ghost sm" title="AI 思维导图">🧠 脑图</button>
+          <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔">✍️ 随笔</button>
+          <button id="btn-analyze" class="btn primary sm">✨ AI 笔记</button>
+          <div class="dropdown">
+            <button id="btn-export" class="btn ghost sm">⬇️ 导出</button>
+            <div id="export-menu" class="dropdown-menu" hidden>
+              <a data-format="md">Markdown(当前显示)</a>
+              <a data-format="txt">TXT(当前显示)</a>
+              <a data-format="srt" data-lang="orig">SRT 字幕 · 原文</a>
+              <a data-format="srt" data-lang="zh">SRT 字幕 · 中文</a>
+              <a data-format="srt" data-lang="both">SRT 字幕 · 双语</a>
+              <a id="menu-burn-mp4">🎬 封装软字幕 · MP4</a>
+              <a id="menu-burn-mkv">🎬 封装软字幕 · MKV</a>
+              <div class="cm-sep"></div>
+              <a id="menu-obsidian">📓 导出 Obsidian</a>
+            </div>
+          </div>
+          <div class="dropdown">
+            <button id="btn-more" class="btn ghost sm">⋯</button>
+            <div id="more-menu" class="dropdown-menu" hidden>
+              <a id="menu-polish">✨ AI 标点恢复</a>
+              <a id="menu-retranscribe">🔁 重新转写…</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 主体:左转写稿 + 右面板 -->
+      <div class="detail-body">
+        <div class="detail-left">
+          <div class="video-display">
+            <video id="player" playsinline></video>
+          </div>
+          <div class="transcript-toolbar">
+            <span id="task-status" class="tag"></span>
+            <div class="seg-ctrl" id="lang-ctrl">
+              <button data-mode="orig" class="active">原文</button>
+              <button data-mode="zh">中文</button>
+              <button data-mode="both">双语</button>
+            </div>
+            <button id="btn-translate" class="btn ghost sm">🌐 翻译</button>
+            <div class="spacer"></div>
+            <input id="transcript-search" class="tsearch" type="search" placeholder="搜索转写稿…">
+            <button id="btn-edit" class="btn ghost sm">✏️ 编辑</button>
+            <button id="btn-save-edit" class="btn primary sm" hidden>保存修改</button>
+          </div>
+          <div id="transcript" class="transcript">
+            <div class="empty-hint">加载中…</div>
+          </div>
+        </div>
+
+        <div class="detail-right">
+          <div class="tabs">
+            <button class="tab active" data-tab="ai">智能笔记</button>
+            <button class="tab" data-tab="chat">问答</button>
+            <button class="tab" data-tab="notes">我的笔记</button>
+          </div>
+          <div id="tab-ai" class="tab-pane">
+            <div id="ai-status" class="ai-status" hidden></div>
+            <div id="ai-content" class="ai-content">
+              <div class="empty-hint">点击右上角「✨ AI 笔记」,<br>生成摘要、章节速览、待办与关键词。</div>
+            </div>
+          </div>
+          <div id="tab-chat" class="tab-pane" hidden>
+            <div id="chat-messages" class="chat-messages">
+              <div class="empty-hint">就这段录音提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」</div>
+            </div>
+            <div class="chat-input-row">
+              <textarea id="chat-input" rows="1" placeholder="输入问题,Enter 发送…"></textarea>
+              <button id="btn-chat-send" class="btn primary sm">发送</button>
+            </div>
+          </div>
+          <div id="tab-notes" class="tab-pane" hidden>
+            <textarea id="my-notes" class="my-notes" placeholder="随手记录想法、要点,自动保存…"></textarea>
+            <div id="notes-status" class="notes-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部播放器栏(固定) -->
+      <div id="player-bar" class="player-bar">
+        <button id="pb-play" class="pb-btn" title="播放/暂停(空格)">▶</button>
+        <span id="pb-cur" class="pb-time">00:00</span>
+        <input id="pb-seek" type="range" min="0" max="1000" value="0" class="pb-seek">
+        <span id="pb-dur" class="pb-time">00:00</span>
+        <select id="pb-speed" class="pb-speed" title="播放倍速">
+          <option value="0.5">0.5×</option>
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+        </select>
+        <button id="pb-mute" class="pb-btn" title="静音">🔊</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ 设置弹窗 ============ -->
+<div id="settings-overlay" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <span class="mm-title">⚙️ 设置</span>
+      <div class="spacer"></div>
+      <button id="set-close" class="icon-btn" title="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>AI 服务地址(OpenAI 兼容格式)</label>
+      <input id="set-base" type="text" placeholder="http://localhost:23333/v1">
+      <label>API Key <span class="muted" id="set-key-hint"></span></label>
+      <input id="set-key" type="password" placeholder="不修改请留空">
+      <label>模型</label>
+      <div class="field-row">
+        <input id="set-model" list="model-list" placeholder="如 deepseek:deepseek-chat">
+        <button id="set-fetch" class="btn ghost sm">获取可选模型</button>
+      </div>
+      <datalist id="model-list"></datalist>
+      <label>翻译引擎(AI 服务用于笔记/脑图/问答/标点)</label>
+      <div class="seg-ctrl" id="tr-mode-ctrl" style="width:100%">
+        <button data-mode="local" class="active" style="flex:1">本地模型(免费,离线)</button>
+        <button data-mode="api" style="flex:1">API 服务(同上)</button>
+      </div>
+      <div id="tr-local-box" style="margin-top:8px">
+        <div class="field-row">
+          <button id="btn-dl-local" class="btn ghost sm">⬇ 下载 / 更新模型</button>
+          <span id="local-model-status" class="muted" style="font-size:11.5px;align-self:center"></span>
+        </div>
+        <div style="margin-top:6px">
+          <span class="link" id="btn-toggle-repo" style="font-size:11.5px">更换模型仓库 ▸</span>
+          <input id="set-local-repo" type="text" hidden placeholder="HF 仓库,如 mlx-community/Qwen2.5-3B-Instruct-4bit">
+        </div>
+      </div>
+      <label>转写引擎</label>
+      <select id="set-asr" class="set-select">
+        <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
+        <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
+        <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
+      </select>
+      <label class="check-row" style="margin-top:12px">
+        <input type="checkbox" id="set-polish"> 转写后自动用 AI 恢复标点
+      </label>
+      <label style="margin-top:14px">Obsidian 导出路径(知识库目录)</label>
+      <input id="set-obsidian-path" type="text" placeholder="留空则默认 ~/Documents/Obsidian">
+      <label style="margin-top:10px">导出内容(逗号分隔:transcript,ai,chat,notes)</label>
+      <input id="set-obsidian-sections" type="text" placeholder="transcript,ai,chat,notes">
+      <label style="margin-top:14px">随笔生成提示词</label>
+      <textarea id="set-essay-prompt" rows="6" placeholder="留空使用默认。占位符 {transcript} 会被替换为转写稿全文。"></textarea>
+      <p class="muted tiny" style="margin-top:4px">自定义随笔的写作要求;留空则使用内置默认提示词。</p>
+      <div id="set-result" class="set-result"></div>
+      <p class="muted tiny">所有设置仅保存在本机,修改后立即生效。</p>
+    </div>
+    <div class="modal-foot">
+      <button id="set-test" class="btn ghost">测试连接</button>
+      <div class="spacer"></div>
+      <button id="set-save" class="btn primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 新建转写配置弹窗 ============ -->
+<div id="new-overlay" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <span class="mm-title" id="new-title">🎙 新建转写</span>
+      <div class="spacer"></div>
+      <button id="new-close" class="icon-btn" title="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="new-file" class="new-file"></div>
+      <label>转写引擎</label>
+      <select id="new-engine" class="set-select">
+        <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
+        <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
+        <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
+      </select>
+      <label>语言</label>
+      <select id="new-language" class="set-select">
+        <option value="">自动检测</option>
+        <option value="zh">中文</option>
+        <option value="en">英文</option>
+        <option value="ja">日文</option>
+        <option value="ko">韩文</option>
+        <option value="yue">粤语</option>
+      </select>
+      <label class="check-row" style="margin-top:14px">
+        <input type="checkbox" id="new-translate"> 转写完成后自动翻译成中文
+      </label>
+      <label style="margin-top:14px">热词(可选,逗号分隔,提升专有名词识别)</label>
+      <input id="new-hotwords" type="text" placeholder="如:ColorOS,小布,王小明">
+      <p class="muted tiny">你的选择会被记住,下次自动填好。</p>
+    </div>
+    <div class="modal-foot">
+      <button id="new-cancel" class="btn ghost">取消</button>
+      <div class="spacer"></div>
+      <button id="new-start" class="btn primary">开始转写</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 思维导图弹窗 ============ -->
+<div id="mm-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" style="width:88vw;height:82vh;max-width:none;max-height:none">
+    <div class="modal-head">
+      <span class="mm-title">🧠 思维导图</span>
+      <span id="mm-status" class="muted" style="font-size:12px;margin-left:10px"></span>
+      <div class="spacer"></div>
+      <button id="mm-zoom-out" class="icon-btn" title="缩小">−</button>
+      <button id="mm-zoom-in" class="icon-btn" title="放大">＋</button>
+      <button id="mm-fit" class="btn ghost sm">适应</button>
+      <button id="mm-regen" class="btn ghost sm">↻ 重新生成</button>
+      <button id="mm-export" class="btn ghost sm">⬇ PNG</button>
+      <button id="mm-close" class="icon-btn" title="关闭(Esc)">✕</button>
+    </div>
+    <div id="mm-wrap" style="flex:1;min-height:0;background:#fafafa;overflow:hidden;border-radius:0 0 14px 14px">
+      <svg id="mm-svg" style="width:100%;height:100%;display:block;cursor:grab"></svg>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 随笔弹窗 ============ -->
+<div id="essay-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" style="width:min(860px,92vw);height:82vh;max-width:none;max-height:none">
+    <div class="modal-head">
+      <span class="mm-title">✍️ AI 随笔</span>
+      <span id="essay-status" class="muted" style="font-size:12px;margin-left:10px"></span>
+      <div class="spacer"></div>
+      <button id="essay-regen" class="btn ghost sm">↻ 重新生成</button>
+      <button id="essay-export-obsidian" class="btn ghost sm">📓 导出 Obsidian</button>
+      <button id="essay-close" class="icon-btn" title="关闭(Esc)">✕</button>
+    </div>
+    <div id="essay-body" class="essay-body"></div>
+  </div>
+</div>
+
+<!-- 任务球 + 任务中心 -->
+<button id="job-fab" class="job-fab" hidden title="任务中心">
+  <span id="job-fab-icon">⏳</span><span id="job-fab-count"></span>
+</button>
+<div id="jobs-overlay" class="modal-overlay" hidden>
+  <div class="modal-card jobs-card">
+    <div class="modal-head">
+      <span class="mm-title">📋 任务中心</span>
+      <div class="spacer"></div>
+      <button id="jobs-close" class="icon-btn" title="关闭">✕</button>
+    </div>
+    <div id="jobs-list" class="jobs-list"></div>
+  </div>
+</div>
+
+<!-- 卡片管理菜单 -->
+<div id="card-menu" class="dropdown-menu floating" hidden></div>
+
+<input type="file" id="file-input" hidden>
+<div id="toast" class="toast" hidden></div>
+<script src="app.js?v=4"></script>
+</body>
+</html>
