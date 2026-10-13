@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 启动 Manet(quod manet, manet · 思想仍在)。LLM 走 Cherry Studio 本地 API 代理(设置页可改)。
+# 启动 Manet(quod manet, manet)。LLM 走 Cherry Studio 本地 API 代理(设置页可改)。
 cd "$(dirname "$0")"
 
 # ---- 定位 uv:双击/LaunchAgent 启动时 PATH 可能不含其安装位置 ----

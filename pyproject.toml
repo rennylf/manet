@@ -1,7 +1,7 @@
 [project]
 name = "manet-local"
 version = "1.0.0"
-description = "Manet. 思想仍在。— 本地声音转写与解读的个人产品实验;Apple Silicon 全本地推理,数据不出机器"
+description = "Manet — 本地声音转写与解读的个人产品实验;Apple Silicon 全本地推理,数据不出机器"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "rennylf" }]

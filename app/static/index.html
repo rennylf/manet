@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manet · 思想仍在 — 本地声音转写与解读</title>
+<title>Manet — 本地声音转写与解读</title>
 <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
@@ -50,7 +50,7 @@
 
   <!-- ================= 侧边栏 ================= -->
   <aside id="sidebar">
-    <div class="logo"><svg class="icon icon-20 logo-mark"><use href="#i-mark"/></svg>Manet<span>· 思想仍在</span></div>
+    <div class="logo"><svg class="icon icon-20 logo-mark"><use href="#i-mark"/></svg>Manet</div>
     <button id="btn-side-upload" class="btn primary side-btn"><svg class="icon"><use href="#i-import"/></svg>导入音视频</button>
     <button class="btn side-btn soon" disabled title="路线图功能">实时录音 · 未至</button>
     <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>档案库</div>
@@ -102,7 +102,7 @@
         <div class="topbar-actions">
           <button id="btn-mindmap" class="btn ghost sm" title="思维导图"><svg class="icon"><use href="#i-mindmap"/></svg>脑图</button>
           <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔"><svg class="icon"><use href="#i-essay"/></svg>随笔</button>
-          <button id="btn-analyze" class="btn primary sm" title="Scriba 通读留存:摘要 / 章节 / 待办 / 关键词"><svg class="icon"><use href="#i-interpret"/></svg>Scriba 解读</button>
+          <button id="btn-analyze" class="btn primary sm" title="AI 通读留存:摘要 / 章节 / 待办 / 关键词"><svg class="icon"><use href="#i-interpret"/></svg>AI 解读</button>
           <div class="dropdown">
             <button id="btn-export" class="btn ghost sm"><svg class="icon"><use href="#i-export"/></svg>导出</button>
             <div id="export-menu" class="dropdown-menu" hidden>
@@ -161,12 +161,12 @@
           <div id="tab-ai" class="tab-pane">
             <div id="ai-status" class="ai-status" hidden></div>
             <div id="ai-content" class="ai-content">
-              <div class="empty-hint">点击右上角「Scriba 解读」——<br>摘要、章节速览、待办与关键词。</div>
+              <div class="empty-hint">点击右上角「AI 解读」——<br>摘要、章节速览、待办与关键词。</div>
             </div>
           </div>
           <div id="tab-chat" class="tab-pane" hidden>
             <div id="chat-messages" class="chat-messages">
-              <div class="empty-hint">向这段留存提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」<br>Scriba 不插话、不评判,只引用内容回答。</div>
+              <div class="empty-hint">向这段留存提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」<br>它不插话、不评判,只引用内容回答。</div>
             </div>
             <div class="chat-input-row">
               <textarea id="chat-input" rows="1" placeholder="输入问题,Enter 发送…"></textarea>

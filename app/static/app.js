@@ -1,4 +1,4 @@
-/* Manet — quod manet, manet. 思想仍在。 */
+/* Manet — quod manet, manet. */
 "use strict";
 window.onerror = (msg, src, line, col) => {
   const el = document.getElementById("toast");
@@ -66,7 +66,7 @@ function statusOf(t) {
   if (t.status === "queued") return { dot: "queued", text: "排队中" };
   if (t.status === "transcribing") return { dot: "running", text: t.stage || "转写中" };
   if (t.polish_status === "running") return { dot: "running", text: t.stage || "AI 标点恢复" };
-  if (t.analysis_status === "running") return { dot: "running", text: "Scriba 解读生成中" };
+  if (t.analysis_status === "running") return { dot: "running", text: "AI 解读生成中" };
   return { dot: "done", text: "完成" };
 }
 function titleOf(t) { return t.display_title || t.filename; }
@@ -214,7 +214,7 @@ function openDetail(taskId) {
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
   $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>加载中…</div>';
-  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「Scriba 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
+  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true;
   renderSidebar(); pollTask(); loadNotes();
@@ -289,7 +289,7 @@ $("#new-start").addEventListener("click", async () => {
     } else {
       const t = ctx.task;
       const willLose = [
-        t.analyzed && "Scriba 解读(摘要/章节/待办)",
+        t.analyzed && "AI 解读(摘要/章节/待办)",
         t.translation_status === "done" && "翻译",
         t.polished && "AI 标点恢复",
         t.burn_status === "done" && "字幕视频",
@@ -302,7 +302,7 @@ $("#new-start").addEventListener("click", async () => {
         body: JSON.stringify({ language: prefs.language, hotwords: prefs.hotwords, engine: prefs.engine, auto_translate: prefs.translate }) });
       toast("已加入重新转写队列"); exitEditMode();
       $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>重新转写中…</div>';
-      $("#ai-content").innerHTML = '<div class="empty-hint">转写完成后可生成 Scriba 解读。</div>';
+      $("#ai-content").innerHTML = '<div class="empty-hint">转写完成后可生成 AI 解读。</div>';
       $("#btn-analyze").disabled = true; pollTask();
     }
   } catch (e) { toast("操作失败:" + e.message); }
@@ -591,7 +591,7 @@ function bindBurn(sel, container) {
 }
 bindBurn("#menu-burn-mp4", "mp4"); bindBurn("#menu-burn-mkv", "mkv");
 
-/* ================= Scriba 解读 ================= */
+/* ================= AI 解读 ================= */
 $("#btn-analyze").addEventListener("click", async () => { try { await api(`/api/tasks/${state.taskId}/analyze`, { method: "POST" }); switchTab("ai"); pollAnalysis(); } catch (e) { toast("无法开始分析:" + e.message); } });
 function pollAnalysis() {
   const s = $("#ai-status"); switchTab("ai"); s.hidden = false; s.classList.remove("error");
@@ -881,9 +881,9 @@ function jobsOf(t) {
   if (t.translation_status === "running") push("i-translate", "翻译", "running", t.stage);
   else if (t.translation_status === "error") push("i-translate", "翻译", "error", t.translation_error);
   else if (t.translation_status === "cancelled") push("i-translate", "翻译", "cancelled", "已终止");
-  if (t.analysis_status === "running") push("i-interpret", "Scriba 解读", "running", "生成中");
-  else if (t.analysis_status === "error") push("i-interpret", "Scriba 解读", "error", t.analysis_error);
-  else if (t.analysis_status === "cancelled") push("i-interpret", "Scriba 解读", "cancelled", "已终止");
+  if (t.analysis_status === "running") push("i-interpret", "AI 解读", "running", "生成中");
+  else if (t.analysis_status === "error") push("i-interpret", "AI 解读", "error", t.analysis_error);
+  else if (t.analysis_status === "cancelled") push("i-interpret", "AI 解读", "cancelled", "已终止");
   if (t.burn_status === "running") push("i-film", "字幕封装", "running", "正在封装");
   else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
   else if (t.burn_status === "error") push("i-film", "字幕封装", "error", t.burn_error);

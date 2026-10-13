@@ -71,7 +71,7 @@
 | ⬇️ 导出 / ⬇ PNG / 💾 保存 | `i-export` / `i-download` | 顶栏 / 脑图弹窗 / 任务中心 |
 | 🧠 脑图 | `i-mindmap` | 顶栏 / 脑图弹窗 |
 | ✍️ 随笔 | `i-essay` | 顶栏 / 随笔弹窗 |
-| ✨ AI 笔记 / Scriba 解读 | `i-interpret`（页边批注线） | 顶栏 / 任务行 |
+| ✨ AI 笔记 / AI 解读 | `i-interpret`（页边批注线） | 顶栏 / 任务行 |
 | （问答无图标） | `i-chat` | 图标集预留 |
 | 我的笔记 | `i-note` | 图标集 / Obsidian 导出按钮 |
 | ▶ / ⏸ | `i-play` / `i-pause` | 播放栏 / 任务暂停继续 |

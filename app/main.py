@@ -12,7 +12,7 @@ from . import config, settings as settings_mod, tasks, transcribe as tr
 from .utils import fmt_ts, load_json
 
 app = FastAPI(title="Manet", version="1.0.0",
-              description="Manet. 思想仍在。— 本地声音转写与解读(quod manet, manet)")
+              description="Manet — 本地声音转写与解读(quod manet, manet)")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
