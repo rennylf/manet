@@ -585,6 +585,24 @@ def essay(sentences: list[dict], check=None) -> str:
     return _essay_once(digest)
 
 
+TITLE_PROMPT = """为以下转写稿起一个简洁的标题(20 字以内)。
+要求:体现内容的核心主题与对象;只输出标题本身,不要引号、书名号、句号或任何解释。
+
+转写稿:
+{transcript}"""
+
+
+def suggest_title(sentences: list[dict]) -> str:
+    """独立的 AI 改名:为转写稿生成一个简洁标题。"""
+    transcript = _sample_context(_timestamped_transcript(sentences))
+    out = _chat([
+        {"role": "system", "content": "你是擅长拟标题的编辑。"},
+        {"role": "user", "content": TITLE_PROMPT.replace("{transcript}", transcript)},
+    ], temperature=0.3, timeout=60)
+    t = (out or "").strip().strip("\"'“”‘’《<>[]")
+    return t.splitlines()[0].strip()[:60] if t else ""
+
+
 def _entries(v) -> list[dict]:
     """LLM 偶发把 chapters/todos 返回成字符串列表 → 统一成 dict。"""
     out = []

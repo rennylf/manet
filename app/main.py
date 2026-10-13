@@ -312,20 +312,37 @@ def api_get_mindmap(task_id: str):
 
 @app.post("/api/tasks/{task_id}/mindmap")
 def api_gen_mindmap(task_id: str, regen: bool = False):
-    """生成思维导图(有缓存直接返回,regen=true 强制重新生成)。"""
-    from . import llm as llm_mod
+    """生成思维导图:有缓存直接返回;否则入队后台任务,完成后角标提醒。"""
     cached = load_json(config.RESULT_DIR / f"{task_id}.mindmap.json")
     if cached is not None and not regen:
         return cached
+    try:
+        tasks.request_mindmap(task_id)
+    except KeyError:
+        raise HTTPException(404, "转写结果不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"queued": True}
+
+
+@app.post("/api/tasks/{task_id}/ai-title")
+def api_ai_title(task_id: str):
+    """独立 AI 改名:依据转写稿生成标题(已有解读结果时复用其标题,秒回)。"""
+    from . import llm as llm_mod
     data = tr.load_result(task_id)
     if data is None:
         raise HTTPException(404, "转写结果不存在")
-    try:
-        tree = llm_mod.mindmap(data["sentences"])
-    except llm_mod.LLMError as e:
-        raise HTTPException(502, str(e))
-    path.write_text(json.dumps(tree, ensure_ascii=False, indent=1), encoding="utf-8")
-    return tree
+    analysis = load_json(config.RESULT_DIR / f"{task_id}.analysis.json")
+    title = ((analysis or {}).get("title") or "").strip()
+    if not title:
+        try:
+            title = llm_mod.suggest_title(data["sentences"])
+        except llm_mod.LLMError as e:
+            raise HTTPException(502, str(e))
+    if not title:
+        raise HTTPException(502, "AI 未返回有效标题")
+    tasks.apply_ai_title(task_id, title)
+    return {"title": title}
 
 
 @app.get("/api/tasks/{task_id}/essay")
@@ -338,20 +355,17 @@ def api_get_essay(task_id: str):
 
 @app.post("/api/tasks/{task_id}/essay")
 def api_gen_essay(task_id: str, regen: bool = False):
-    """把转写稿改写为一篇主旨明确、内容精炼的随笔(有缓存直接返回,regen=true 强制重新生成)。"""
-    from . import llm as llm_mod
+    """生成随笔:有缓存直接返回;否则入队后台任务,完成后角标提醒。"""
     p = config.RESULT_DIR / f"{task_id}.essay.txt"
     if p.exists() and not regen:
         return {"essay": p.read_text(encoding="utf-8")}
-    data = tr.load_result(task_id)
-    if data is None:
-        raise HTTPException(404, "转写结果不存在")
     try:
-        text = llm_mod.essay(data["sentences"])
-    except llm_mod.LLMError as e:
-        raise HTTPException(502, str(e))
-    p.write_text(text, encoding="utf-8")
-    return {"essay": text}
+        tasks.request_essay(task_id)
+    except KeyError:
+        raise HTTPException(404, "转写结果不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"queued": True}
 
 
 def _essay_title_from_text(text: str, fallback: str) -> str:

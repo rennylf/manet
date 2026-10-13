@@ -18,6 +18,7 @@ const state = {
   chatMessages: [], chatBusy: false, notesTimer: null,
   translation: null, displayMode: localStorage.getItem("tw_display_mode") || "orig",
   folders: [], folderFilter: null, translatePoll: null, burnPoll: null,
+  derivPoll: null, seenMindmap: false, seenEssay: false,
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -210,6 +211,7 @@ function openDetail(taskId) {
   state.view = "detail"; state.taskId = taskId;
   state.analysis = null; state.sentences = []; state.paras = [];
   state.chatMessages = []; state.translation = null;
+  state.seenMindmap = false; state.seenEssay = false;
   activeParaIdx = -1; playerReadyFor = null; exitEditMode();
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
@@ -222,7 +224,7 @@ function openDetail(taskId) {
 $("#nav-home").addEventListener("click", showHome);
 $("#btn-back").addEventListener("click", showHome);
 function stopAllPolling() {
-  for (const k of ["pollTimer", "polishPoll", "analysisPoll", "translatePoll", "burnPoll"])
+  for (const k of ["pollTimer", "polishPoll", "analysisPoll", "translatePoll", "burnPoll", "derivPoll"])
     if (state[k]) { clearInterval(state[k]); state[k] = null; }
 }
 
@@ -475,6 +477,8 @@ function pollTask() {
         if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
         await loadTranscript(); await loadTranslation(); renderTranscript();
         $("#btn-analyze").disabled = false; $("#btn-mindmap").disabled = false; $("#btn-translate").disabled = false; $("#btn-essay").disabled = false;
+        updateDerivBadges();
+        if (t.mindmap_status === "running" || t.essay_status === "running") startDerivPoll();
         if (t.analyzed) await loadAnalysis();
         else if (t.analysis_status === "running") pollAnalysis();
         if (t.polish_status === "running") { $("#btn-analyze").disabled = true; pollPolish(); }
@@ -564,6 +568,14 @@ $("#menu-obsidian").addEventListener("click", async () => {
   } catch (e) { toast("Obsidian 导出失败:" + e.message); }
 });
 
+$("#menu-aititle").addEventListener("click", async () => {
+  try {
+    const r = await api(`/api/tasks/${state.taskId}/ai-title`, { method: "POST" });
+    if (state.task) state.task.ai_title = r.title;
+    $("#detail-title").textContent = r.title;
+    renderSidebar(); fetchTasks(); toast("标题已更新");
+  } catch (e) { toast("AI 改名失败:" + e.message, 5000); }
+});
 $("#menu-polish").addEventListener("click", async () => {
   try { await api(`/api/tasks/${state.taskId}/polish`, { method: "POST" }); pollPolish(); } catch (e) { toast("无法润色:" + e.message); }
 });
@@ -789,15 +801,47 @@ function mmApplyView() { const r = document.querySelector("#mm-svg > g"); if (r)
 function mmFit() { if (!mmTree) return; const { nodes } = mmLayout(mmTree); if (!nodes.length) return; const xs = nodes.flatMap(n => [n.x, n.x + n.w + 46]), ys = nodes.flatMap(n => [n.y - MM_NODE_H / 2, n.y + MM_NODE_H / 2]); const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys); const wrap = $("#mm-wrap"), W = wrap.clientWidth, H = wrap.clientHeight, bw = maxX - minX, bh = maxY - minY; const kW = W / (bw + 80), kAll = Math.min(kW, H / (bh + 60)); const k = kAll >= 0.8 ? Math.min(kAll, 1.4) : Math.min(kW, 1); mmView = { k, x: (W - bw * k) / 2 - minX * k, y: (H - bh * k) / 2 - minY * k }; mmApplyView(); }
 function mmZoom(f) { const w = $("#mm-wrap"), px = w.clientWidth / 2, py = w.clientHeight / 2, k2 = Math.min(3, Math.max(0.2, mmView.k * f)); mmView.x = px - (px - mmView.x) * (k2 / mmView.k); mmView.y = py - (py - mmView.y) * (k2 / mmView.k); mmView.k = k2; mmApplyView(); }
 function mmSetStatus(s) { $("#mm-status").textContent = s; }
+const MM_HINT = "点击折叠/展开 · 蓝色时间戳跳转播放 · 滚轮滚动 · Ctrl+滚轮缩放";
 async function openMindmap(regen = false) {
-  $("#mm-overlay").hidden = false;
-  if (!regen && mmTree) { renderMindmap(); mmFit(); return; }
-  mmSetStatus(regen ? "重新生成中…" : "加载…");
+  if (!regen && mmTree) {
+    $("#mm-overlay").hidden = false; state.seenMindmap = true; updateDerivBadges();
+    renderMindmap(); mmFit(); mmSetStatus(MM_HINT); return;
+  }
   try {
-    if (regen) mmTree = await api(`/api/tasks/${state.taskId}/mindmap?regen=true`, { method: "POST" });
-    else { try { mmTree = await api(`/api/tasks/${state.taskId}/mindmap`); } catch { mmSetStatus("AI 生成思维导图中…"); mmTree = await api(`/api/tasks/${state.taskId}/mindmap`, { method: "POST" }); } }
-  } catch (e) { mmSetStatus("生成失败:" + e.message); return; }
-  mmCollapsed.clear(); renderMindmap(); mmFit(); mmSetStatus("点击折叠/展开 · 蓝色时间戳跳转播放 · 滚轮滚动 · Ctrl+滚轮缩放");
+    const r = await api(`/api/tasks/${state.taskId}/mindmap${regen ? "?regen=true" : ""}`, { method: "POST" });
+    if (r.queued) { toast("脑图任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
+    mmTree = r; state.seenMindmap = true; updateDerivBadges();
+    $("#mm-overlay").hidden = false; mmCollapsed.clear(); renderMindmap(); mmFit(); mmSetStatus(MM_HINT);
+  } catch (e) { toast("脑图失败:" + e.message, 5000); }
+}
+/* 脑图/随笔后台任务:角标(完成待看)+ 轮询收尾 */
+function updateDerivBadges() {
+  const t = state.task; if (!t) return;
+  const done = t.status === "done";
+  $("#btn-mindmap").classList.toggle("has-new", t.mindmap_status === "done" && !state.seenMindmap);
+  $("#btn-essay").classList.toggle("has-new", t.essay_status === "done" && !state.seenEssay);
+  $("#btn-mindmap").disabled = !done || t.mindmap_status === "running";
+  $("#btn-essay").disabled = !done || t.essay_status === "running";
+}
+function startDerivPoll() {
+  if (state.derivPoll) return;
+  state.derivPoll = setInterval(async () => {
+    try {
+      const prev = state.task, t = await api(`/api/tasks/${state.taskId}`);
+      if (state.view !== "detail" || t.id !== state.taskId) { clearInterval(state.derivPoll); state.derivPoll = null; return; }
+      state.task = t; renderDetailHead(t);
+      if (prev?.mindmap_status === "running" && t.mindmap_status === "done" && !$("#mm-overlay").hidden) {
+        try { mmTree = await api(`/api/tasks/${state.taskId}/mindmap`); renderMindmap(); mmFit(); } catch {}
+      }
+      if (prev?.mindmap_status === "running" && t.mindmap_status === "error") toast("脑图生成失败:" + (t.mindmap_error || ""), 5000);
+      if (prev?.essay_status === "running" && t.essay_status === "done" && !$("#essay-overlay").hidden) {
+        try { const r = await api(`/api/tasks/${state.taskId}/essay`); renderEssay(r.essay); } catch {}
+      }
+      if (prev?.essay_status === "running" && t.essay_status === "error") toast("随笔生成失败:" + (t.essay_error || ""), 5000);
+      updateDerivBadges(); fetchTasks();
+      if (t.mindmap_status !== "running" && t.essay_status !== "running") { clearInterval(state.derivPoll); state.derivPoll = null; }
+    } catch {}
+  }, 2500);
 }
 $("#btn-mindmap").addEventListener("click", () => openMindmap(false));
 $("#mm-regen").addEventListener("click", () => openMindmap(true));
@@ -839,23 +883,12 @@ function renderEssay(text) {
   b.innerHTML = `<div class="essay-text">${escapeHtml(text)}</div>`;
 }
 async function openEssay(regen = false) {
-  $("#essay-overlay").hidden = false;
-  essaySetStatus(regen ? "重新生成中…" : "加载…");
-  $("#essay-body").innerHTML = '<div class="empty-hint"><span class="spinner"></span>AI 正在撰写随笔…</div>';
   try {
-    let r;
-    if (regen) {
-      r = await api(`/api/tasks/${state.taskId}/essay?regen=true`, { method: "POST" });
-    } else {
-      try { r = await api(`/api/tasks/${state.taskId}/essay`); }
-      catch { essaySetStatus("AI 正在撰写随笔…"); r = await api(`/api/tasks/${state.taskId}/essay`, { method: "POST" }); }
-    }
-    renderEssay(r.essay); essaySetStatus("");
-  } catch (e) {
-    essaySetStatus("");
-    $("#essay-body").innerHTML = `<div class="empty-hint">生成失败:${escapeHtml(e.message)}</div>`;
-    toast("随笔生成失败:" + e.message, 5000);
-  }
+    const r = await api(`/api/tasks/${state.taskId}/essay${regen ? "?regen=true" : ""}`, { method: "POST" });
+    if (r.queued) { toast("随笔任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
+    state.seenEssay = true; updateDerivBadges();
+    $("#essay-overlay").hidden = false; renderEssay(r.essay); essaySetStatus("");
+  } catch (e) { toast("随笔失败:" + e.message, 5000); }
 }
 $("#btn-essay").addEventListener("click", () => openEssay(false));
 $("#essay-regen").addEventListener("click", () => openEssay(true));
@@ -887,6 +920,10 @@ function jobsOf(t) {
   if (t.analysis_status === "running") push("i-interpret", "AI 解读", "running", "生成中");
   else if (t.analysis_status === "error") push("i-interpret", "AI 解读", "error", t.analysis_error);
   else if (t.analysis_status === "cancelled") push("i-interpret", "AI 解读", "cancelled", "已终止");
+  if (t.mindmap_status === "running") push("i-mindmap", "脑图", "running", "生成中", { canPause: false });
+  else if (t.mindmap_status === "error") push("i-mindmap", "脑图", "error", t.mindmap_error);
+  if (t.essay_status === "running") push("i-essay", "随笔", "running", "撰写中");
+  else if (t.essay_status === "error") push("i-essay", "随笔", "error", t.essay_error);
   if (t.burn_status === "running") push("i-film", "字幕封装", "running", "正在封装");
   else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
   else if (t.burn_status === "error") push("i-film", "字幕封装", "error", t.burn_error);

@@ -276,6 +276,10 @@ def create_task(filename: str, tmp_path: Path, language: str | None,
             "burn_mode": None,          # orig / zh / both
             "burn_error": None,
             "burned_path": None,
+            "mindmap_status": None,     # 脑图:None / running / done / error(后台任务)
+            "mindmap_error": None,
+            "essay_status": None,       # 随笔:None / running / done / error(后台任务)
+            "essay_error": None,
             "paused": False,
             "cancel_requested": False,
             "engine": engine,            # 本次任务的转写引擎(None=跟随设置页)
@@ -305,6 +309,8 @@ def retranscribe(task_id: str, language: str | None, hotwords: str | None,
             polish_status=None, polish_error=None,
             translation_status=None, translation_error=None,
             burn_status=None, burn_error=None, burned_path=None,
+            mindmap_status=None, mindmap_error=None,
+            essay_status=None, essay_error=None, ai_title=None,
             paused=False, cancel_requested=False,
             engine=engine, auto_translate=bool(auto_translate),
         )
@@ -340,6 +346,38 @@ def request_analysis(task_id: str):
         task["analysis_error"] = None
         _persist(force=True)
     _enqueue(task_id, "analyze")
+
+
+def _request_derived(task_id: str, field: str, kind: str):
+    """脑图/随笔等后台派生任务的统一入队:未完成转写或已在生成中则拒绝。"""
+    with _lock:
+        task = _tasks.get(task_id)
+        if not task or task["status"] != "done":
+            raise KeyError(task_id)
+        if task.get(field) == "running":
+            raise ValueError("正在生成中,请稍候")
+        task[field] = "running"
+        task[field.replace("_status", "_error")] = None
+        _persist(force=True)
+    _enqueue(task_id, kind)
+
+
+def request_mindmap(task_id: str):
+    _request_derived(task_id, "mindmap_status", "mindmap")
+
+
+def request_essay(task_id: str):
+    _request_derived(task_id, "essay_status", "essay")
+
+
+def apply_ai_title(task_id: str, title: str):
+    """独立的 AI 改名:写入 ai_title(用户手动改名的 custom_title 仍优先)。"""
+    with _lock:
+        task = _tasks.get(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        task["ai_title"] = title.strip()[:120] or None
+        _persist(force=True)
 
 
 def get_task(task_id: str) -> dict | None:
@@ -392,14 +430,16 @@ def mark_edited(task_id: str, sentences: list[dict]):
     data["full_text"] = "".join(s["text"] for s in sentences)
     data["edited"] = True
     tr.save_result(task_id, data)
-    # 翻译/笔记/脑图按句索引或原文对齐,编辑后会错位 → 作废(用户笔记保留)
+    # 翻译/笔记/脑图/随笔按句索引或原文对齐,编辑后会错位 → 作废(用户笔记保留)
     for name in (".translation.json", ".analysis.json", ".mindmap.json", ".essay.txt"):
         (config.RESULT_DIR / f"{task_id}{name}").unlink(missing_ok=True)
     with _lock:
         t = _tasks.get(task_id)
         if t is not None:
             t.update(analyzed=False, analysis_status=None,
-                     translation_status=None, translation_error=None)
+                     translation_status=None, translation_error=None,
+                     mindmap_status=None, mindmap_error=None,
+                     essay_status=None, essay_error=None)
             _persist(force=True)
     log.info("task %s 文本已编辑,派生数据(翻译/笔记/脑图)已作废", task_id)
 
@@ -655,13 +695,45 @@ def _run_analyze(task_id: str):
         analysis_path = config.RESULT_DIR / f"{task_id}.analysis.json"
         analysis_path.write_text(
             json.dumps(analysis, ensure_ascii=False, indent=1), encoding="utf-8")
-        _update(task_id, analyzed=True, analysis_status="done",
-                ai_title=(analysis.get("title") or "").strip()[:120] or None)
+        # 解读不再顺手改标题:改名是独立功能(/ai-title),避免覆盖用户预期
+        _update(task_id, analyzed=True, analysis_status="done")
     except llm_mod.JobCancelled:
         _finish_cancel(task_id, "analyze")
     except Exception as e:  # noqa: BLE001
         _update(task_id, analysis_status="error",
                 analysis_error=str(e))
+
+
+def _run_mindmap(task_id: str):
+    try:
+        data = tr.load_result(task_id)
+        if data is None:
+            raise llm_mod.LLMError("找不到转写结果")
+        tree = llm_mod.mindmap(data["sentences"])
+        if _job_state(task_id) == "cancel":
+            _finish_cancel(task_id, "mindmap")
+            return
+        (config.RESULT_DIR / f"{task_id}.mindmap.json").write_text(
+            json.dumps(tree, ensure_ascii=False, indent=1), encoding="utf-8")
+        _update(task_id, mindmap_status="done")
+    except llm_mod.JobCancelled:
+        _finish_cancel(task_id, "mindmap")
+    except Exception as e:  # noqa: BLE001
+        _update(task_id, mindmap_status="error", mindmap_error=str(e)[:300])
+
+
+def _run_essay(task_id: str):
+    try:
+        data = tr.load_result(task_id)
+        if data is None:
+            raise llm_mod.LLMError("找不到转写结果")
+        text = llm_mod.essay(data["sentences"], check=lambda: _job_state(task_id))
+        (config.RESULT_DIR / f"{task_id}.essay.txt").write_text(text, encoding="utf-8")
+        _update(task_id, essay_status="done")
+    except llm_mod.JobCancelled:
+        _finish_cancel(task_id, "essay")
+    except Exception as e:  # noqa: BLE001
+        _update(task_id, essay_status="error", essay_error=str(e)[:300])
 
 
 def _worker(channel: str):
@@ -690,6 +762,10 @@ def _worker(channel: str):
                     _run_translate(task_id)
                 elif kind == "burn":
                     _run_burn(task_id)
+                elif kind == "mindmap":
+                    _run_mindmap(task_id)
+                elif kind == "essay":
+                    _run_essay(task_id)
                 log.info("[%s] 完成 %s task=%s 耗时 %.1fs",
                          channel, kind, task_id, time.time() - t0)
             except Exception:  # noqa: BLE001 — 作业异常不让 worker 退出
@@ -722,6 +798,9 @@ def _recover():
                 requeue.append((tid, "burn"))
             if t.get("analysis_status") == "running":
                 t["analysis_status"] = None
+            for f in ("mindmap_status", "essay_status"):
+                if t.get(f) == "running":
+                    t[f] = None
         _persist(force=True)
     for item in requeue:
         _enqueue(*item)
