@@ -703,7 +703,7 @@ $("#my-notes").addEventListener("input", () => {
   }, 800);
 });
 
-/* ================= 设置 ================= */
+/* ================= 设定 ================= */
 const setOverlay = $("#settings-overlay");
 $("#nav-settings").addEventListener("click", openSettings);
 $("#set-close").addEventListener("click", () => (setOverlay.hidden = true));
@@ -724,7 +724,7 @@ async function openSettings() {
     $("#set-essay-prompt").value = s.essay_prompt || "";
     setTrMode(s.translate_mode || "local");
     loadLocalModelStatus();
-  } catch (e) { toast("读取设置失败:" + e.message); }
+  } catch (e) { toast("读取设定失败:" + e.message); }
 }
 function setTrMode(mode) {
   $$("#tr-mode-ctrl button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
@@ -779,7 +779,7 @@ $("#set-save").addEventListener("click", async () => {
         obsidian_sections: sections,
         essay_prompt: $("#set-essay-prompt").value.trim(),
       }) });
-    toast("设置已保存并立即生效"); setOverlay.hidden = true;
+    toast("设定已保存并立即生效"); setOverlay.hidden = true;
   } catch (e) { toast("保存失败:" + e.message); }
 });
 

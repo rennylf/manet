@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manet — 本地声音转写与解读</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23806B50' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M7.5 13a4.5 4.5 0 0 1 9 0'/%3E%3Cpath d='M3 13h18'/%3E%3Cpath d='M6 16v2M9 16v3.5M12 16v5M15 16v3.5M18 16v2'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23806B50' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M8 11.5a4 4 0 0 1 8 0'/%3E%3Cpath d='M3 15.5q2.25 -3 4.5 0t4.5 0t4.5 0t4.5 0'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
-  <!-- 品牌标记:几何日落(半圆+地平线)+ 地平线下的音波条(声波/倒影双关) -->
-  <symbol id="i-mark" viewBox="0 0 24 24"><path d="M7.5 13a4.5 4.5 0 0 1 9 0"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="6" y1="16" x2="6" y2="18"/><line x1="9" y1="16" x2="9" y2="19.5"/><line x1="12" y1="16" x2="12" y2="21"/><line x1="15" y1="16" x2="15" y2="19.5"/><line x1="18" y1="16" x2="18" y2="18"/></symbol>
+  <!-- 品牌标记:半圆落日 + 音波波纹地平线(波纹取代直线) -->
+  <symbol id="i-mark" viewBox="0 0 24 24"><path d="M8 11.5a4 4 0 0 1 8 0"/><path d="M3 15.5q2.25 -3 4.5 0t4.5 0t4.5 0t4.5 0"/></symbol>
   <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><line x1="10" y1="13" x2="14" y2="13"/></symbol>
   <symbol id="i-settings" viewBox="0 0 24 24"><line x1="4" y1="6" x2="11" y2="6"/><line x1="17" y1="6" x2="20" y2="6"/><circle cx="14" cy="6" r="2.4"/><line x1="4" y1="12" x2="5" y2="12"/><line x1="11" y1="12" x2="20" y2="12"/><circle cx="8" cy="12" r="2.4"/><line x1="4" y1="18" x2="13" y2="18"/><line x1="19" y1="18" x2="20" y2="18"/><circle cx="16" cy="18" r="2.4"/></symbol>
   <symbol id="i-import" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/></symbol>
@@ -56,11 +56,11 @@
   <aside id="sidebar">
     <div class="logo"><svg class="icon icon-20 logo-mark"><use href="#i-mark"/></svg>Manet</div>
     <button id="btn-side-upload" class="btn primary side-btn"><svg class="icon"><use href="#i-import"/></svg>导入音视频</button>
-    <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>档案库</div>
+    <div id="nav-settings" class="nav-item"><svg class="icon"><use href="#i-settings"/></svg>设定</div>
     <div id="nav-jobs" class="nav-item" title="任务中心"><svg class="icon"><use href="#i-tasks"/></svg>任务<span id="nav-jobs-count" class="nav-count"></span></div>
-    <div id="nav-settings" class="nav-item"><svg class="icon"><use href="#i-settings"/></svg>设置</div>
+    <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>存档</div>
     <div class="side-search">
-      <input id="search-input" type="search" placeholder="搜索档案…">
+      <input id="search-input" type="search" placeholder="搜索存档…">
     </div>
     <div id="side-list" class="side-list"></div>
     <div class="side-foot">Quod manet, manet.</div>
@@ -98,7 +98,7 @@
 
       <!-- 顶栏:返回 + 标题 + 操作 -->
       <div class="detail-topbar">
-        <button id="btn-back" class="icon-btn" title="返回档案库"><svg class="icon icon-18"><use href="#i-back"/></svg></button>
+        <button id="btn-back" class="icon-btn" title="返回存档"><svg class="icon icon-18"><use href="#i-back"/></svg></button>
         <div class="title-block">
           <h2 id="detail-title" contenteditable="plaintext-only" title="点击可改名"></h2>
           <div id="detail-meta"></div>
@@ -210,7 +210,7 @@
 <div id="settings-overlay" class="modal-overlay" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <span class="mm-title"><svg class="icon"><use href="#i-settings"/></svg> 设置</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-settings"/></svg> 设定</span>
       <div class="spacer"></div>
       <button id="set-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
@@ -277,7 +277,7 @@
       </div>
 
       <div id="set-result" class="set-result"></div>
-      <p class="muted tiny">所有设置只留在本机,修改后立即生效。</p>
+      <p class="muted tiny">所有设定只留在本机,修改后立即生效。</p>
     </div>
     <div class="modal-foot">
       <button id="set-test" class="btn ghost">测试连接</button>
@@ -384,6 +384,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
