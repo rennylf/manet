@@ -93,6 +93,8 @@ def update(patch: dict) -> dict:
             v = patch.get(kk)
             if v and v.strip():
                 _data[kk] = v.strip()
+        if patch.get("clear_llm_api_key"):      # 显式清除已保存的 Key(留空=保留)
+            _data["llm_api_key"] = ""
         SETTINGS_FILE.write_text(
             json.dumps(_data, ensure_ascii=False, indent=1), encoding="utf-8")
         _apply()

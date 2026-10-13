@@ -212,7 +212,10 @@
       <label>AI 服务地址(OpenAI 兼容格式)</label>
       <input id="set-base" type="text" placeholder="http://localhost:23333/v1">
       <label>API Key <span class="muted" id="set-key-hint"></span></label>
-      <input id="set-key" type="password" placeholder="不修改请留空">
+      <div class="field-row">
+        <input id="set-key" type="password" placeholder="已保存的 Key 不回显;输入新值可替换">
+        <button id="set-key-clear" class="btn ghost sm" title="删除本机保存的 Key">清除</button>
+      </div>
       <label>模型</label>
       <div class="field-row">
         <input id="set-model" list="model-list" placeholder="如 deepseek:deepseek-chat">

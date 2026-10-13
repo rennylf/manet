@@ -745,6 +745,17 @@ $("#set-save").addEventListener("click", async () => {
     toast("设置已保存并立即生效"); setOverlay.hidden = true;
   } catch (e) { toast("保存失败:" + e.message); }
 });
+$("#set-key-clear").addEventListener("click", async () => {
+  if (!confirm("清除本机保存的 API Key?清除后 AI 功能将不可用,直到配置新 Key。")) return;
+  try {
+    await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clear_llm_api_key: true }) });
+    $("#set-key").value = "";
+    const s = await api("/api/settings");
+    $("#set-key-hint").textContent = s.has_key ? `(已配置:${s.llm_api_key_masked})` : "(未配置)";
+    toast("已清除保存的 API Key");
+  } catch (e) { toast("清除失败:" + e.message); }
+});
 
 /* ================= 思维导图 ================= */
 const MM_NODE_H = 36, MM_V_GAP = 12, MM_COL_W = 265, MM_X0 = 30;

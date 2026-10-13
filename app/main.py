@@ -650,6 +650,7 @@ class SettingsReq(BaseModel):
     obsidian_path: str | None = None
     obsidian_sections: str | None = None
     essay_prompt: str | None = None
+    clear_llm_api_key: bool | None = None
 
 
 @app.get("/api/settings/local-model")
