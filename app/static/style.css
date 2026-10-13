@@ -399,7 +399,19 @@ body {
 .modal-body textarea { resize: vertical; line-height: 1.7; min-height: 90px; }
 .modal-body input:focus, .modal-body select:focus, .modal-body textarea:focus { outline: none; border-color: var(--accent); }
 .check-row { display: flex !important; align-items: center; gap: 7px; font-size: 13.5px !important; color: var(--text) !important; letter-spacing: 0 !important; }
-.check-row input { width: auto !important; }
+/* 自定义复选框:白底细棕边,选中=复古棕底+暖白勾,不用浏览器原生蓝 */
+.check-row input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; flex-shrink: 0; margin: 0; cursor: pointer;
+  border: 1px solid #C6BFAE; border-radius: 2px; background: #fff;
+  transition: background .12s, border-color .12s;
+}
+.check-row input[type="checkbox"]:hover { border-color: var(--accent); }
+.check-row input[type="checkbox"]:checked {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.5l2.5 2.5 4.5-5' fill='none' stroke='%23F7F5F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px 11px no-repeat;
+  border-color: var(--accent);
+}
+.check-row input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
 .field-row { display: flex; gap: 8px; }
 .field-row input { flex: 1; }
 .muted { color: var(--text-2); font-weight: 400; }
