@@ -310,7 +310,8 @@ def retranscribe(task_id: str, language: str | None, hotwords: str | None,
             translation_status=None, translation_error=None,
             burn_status=None, burn_error=None, burned_path=None,
             mindmap_status=None, mindmap_error=None,
-            essay_status=None, essay_error=None, ai_title=None,
+            essay_status=None, essay_error=None,
+            ai_title=None, ai_title_pool=[], ai_title_used=[],
             paused=False, cancel_requested=False,
             engine=engine, auto_translate=bool(auto_translate),
         )
@@ -370,14 +371,35 @@ def request_essay(task_id: str):
     _request_derived(task_id, "essay_status", "essay")
 
 
-def apply_ai_title(task_id: str, title: str):
-    """独立的 AI 改名:写入 ai_title(用户手动改名的 custom_title 仍优先)。"""
+def next_ai_title(task_id: str) -> str:
+    """标题优化:每次调用返回一个与历史不重复的新标题。
+
+    候选池轮转:池空时一次向 LLM 要 3 个(排除已用过的),逐次消费,
+    避免每次点击都等一轮 LLM。用户手动改名(custom_title)仍优先显示。
+    """
     with _lock:
         task = _tasks.get(task_id)
         if task is None:
             raise KeyError(task_id)
-        task["ai_title"] = title.strip()[:120] or None
+        pool = [t for t in (task.get("ai_title_pool") or [])]
+        used = list(task.get("ai_title_used") or [])
+    if not pool:
+        data = tr.load_result(task_id)
+        if data is None:
+            raise ValueError("转写结果不存在")
+        pool = [t for t in llm_mod.suggest_titles(data["sentences"], exclude=used)
+                if t not in used]
+        if not pool:
+            raise ValueError("AI 暂未想出新的标题,请稍后再试")
+    pick = pool.pop(0)
+    with _lock:
+        task = _tasks.get(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        task.update(ai_title=pick[:120], ai_title_pool=pool,
+                    ai_title_used=used + [pick])
         _persist(force=True)
+    return pick
 
 
 def get_task(task_id: str) -> dict | None:

@@ -327,21 +327,13 @@ def api_gen_mindmap(task_id: str, regen: bool = False):
 
 @app.post("/api/tasks/{task_id}/ai-title")
 def api_ai_title(task_id: str):
-    """独立 AI 改名:依据转写稿生成标题(已有解读结果时复用其标题,秒回)。"""
-    from . import llm as llm_mod
-    data = tr.load_result(task_id)
-    if data is None:
-        raise HTTPException(404, "转写结果不存在")
-    analysis = load_json(config.RESULT_DIR / f"{task_id}.analysis.json")
-    title = ((analysis or {}).get("title") or "").strip()
-    if not title:
-        try:
-            title = llm_mod.suggest_title(data["sentences"])
-        except llm_mod.LLMError as e:
-            raise HTTPException(502, str(e))
-    if not title:
-        raise HTTPException(502, "AI 未返回有效标题")
-    tasks.apply_ai_title(task_id, title)
+    """标题优化:每次点击返回一个新标题(候选池轮转,池空时批量向 LLM 补充)。"""
+    try:
+        title = tasks.next_ai_title(task_id)
+    except KeyError:
+        raise HTTPException(404, "任务不存在")
+    except ValueError as e:
+        raise HTTPException(502, str(e))
     return {"title": title}
 
 

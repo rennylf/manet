@@ -585,22 +585,35 @@ def essay(sentences: list[dict], check=None) -> str:
     return _essay_once(digest)
 
 
-TITLE_PROMPT = """为以下转写稿起一个简洁的标题(20 字以内)。
-要求:体现内容的核心主题与对象;只输出标题本身,不要引号、书名号、句号或任何解释。
+TITLES_PROMPT = """为以下转写稿起 {n} 个彼此不同的标题,每行一个。
+要求:
+1. 角度或句式彼此不同(主题式 / 对象式 / 结论式 / 疑问式等);
+2. 每个 20 字以内,体现内容核心;
+3. 不得与下列已有标题雷同或仅差个别字:{exclude}
+4. 只输出 {n} 行标题,不要编号、引号、书名号或任何解释。
 
 转写稿:
 {transcript}"""
 
 
-def suggest_title(sentences: list[dict]) -> str:
-    """独立的 AI 改名:为转写稿生成一个简洁标题。"""
+def suggest_titles(sentences: list[dict], exclude: list[str] | None = None,
+                   n: int = 3) -> list[str]:
+    """标题优化:一次生成 n 个互不相同的候选标题(供逐次切换)。"""
+    exclude = exclude or []
     transcript = _sample_context(_timestamped_transcript(sentences))
+    ex = "、".join(f"《{t}》" for t in exclude[-8:]) or "(无)"
     out = _chat([
         {"role": "system", "content": "你是擅长拟标题的编辑。"},
-        {"role": "user", "content": TITLE_PROMPT.replace("{transcript}", transcript)},
-    ], temperature=0.3, timeout=60)
-    t = (out or "").strip().strip("\"'“”‘’《<>[]")
-    return t.splitlines()[0].strip()[:60] if t else ""
+        {"role": "user", "content": TITLES_PROMPT.replace("{n}", str(n))
+            .replace("{exclude}", ex).replace("{transcript}", transcript)},
+    ], temperature=0.7, timeout=60)
+    seen, res = set(exclude), []
+    for line in (out or "").splitlines():
+        t = re.sub(r"^\d+\s*[.、)）]\s*", "", line.strip()).strip("\"'“”‘’《<>[] ")
+        if t and t not in seen:
+            seen.add(t)
+            res.append(t[:60])
+    return res
 
 
 def _entries(v) -> list[dict]:

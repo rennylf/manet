@@ -577,12 +577,14 @@ $("#menu-obsidian").addEventListener("click", async () => {
 });
 
 $("#btn-aititle").addEventListener("click", async () => {
+  const b = $("#btn-aititle"); b.disabled = true;   // 生成中防连点
   try {
     const r = await api(`/api/tasks/${state.taskId}/ai-title`, { method: "POST" });
     if (state.task) state.task.ai_title = r.title;
     $("#detail-title").textContent = r.title;
-    renderSidebar(); fetchTasks(); toast("标题已更新");
-  } catch (e) { toast("AI 改名失败:" + e.message, 5000); }
+    renderSidebar(); fetchTasks();
+  } catch (e) { toast("新标题生成失败:" + e.message, 5000); }
+  finally { b.disabled = state.task?.status !== "done"; }
 });
 $("#menu-polish").addEventListener("click", async () => {
   try { await api(`/api/tasks/${state.taskId}/polish`, { method: "POST" }); pollPolish(); } catch (e) { toast("无法润色:" + e.message); }
