@@ -104,9 +104,9 @@ body {
 .side-btn { width: 100%; margin-bottom: 8px; justify-content: center; }
 
 .nav-item {
-  padding: 7px 10px; border-left: 2px solid transparent;
+  padding: 6px 10px; border-left: 2px solid transparent;
   font-size: 13px; cursor: pointer; color: var(--text-2);
-  margin: 2px 0 6px; transition: color var(--t-fast), border-color var(--t-fast); letter-spacing: .5px;
+  margin: 2px 0; transition: color var(--t-fast), border-color var(--t-fast); letter-spacing: .5px;
 }
 .nav-item:hover { color: var(--text); }
 .nav-item.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
