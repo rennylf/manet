@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manet — 本地声音转写与解读</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23806B50' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M7.5 13a4.5 4.5 0 0 1 9 0'/%3E%3Cpath d='M3 13h18'/%3E%3Cpath d='M6 16v2M9 16v3.5M12 16v5M15 16v3.5M18 16v2'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -330,10 +330,12 @@
   <div class="modal-card" style="width:88vw;height:82vh;max-width:none;max-height:none">
     <div class="modal-head">
       <span class="mm-title"><svg class="icon"><use href="#i-mindmap"/></svg> 思维导图</span>
-      <span id="mm-status" class="muted" style="font-size:12px;margin-left:10px"></span>
+      <span id="mm-status" class="muted" style="font-size:12px"></span>
       <div class="spacer"></div>
-      <button id="mm-zoom-out" class="icon-btn" title="缩小"><svg class="icon"><use href="#i-zoom-out"/></svg></button>
-      <button id="mm-zoom-in" class="icon-btn" title="放大"><svg class="icon"><use href="#i-zoom-in"/></svg></button>
+      <span class="zoom-ctrl">
+        <button id="mm-zoom-out" class="icon-btn" title="缩小"><svg class="icon"><use href="#i-zoom-out"/></svg></button>
+        <button id="mm-zoom-in" class="icon-btn" title="放大"><svg class="icon"><use href="#i-zoom-in"/></svg></button>
+      </span>
       <button id="mm-fit" class="btn ghost sm"><svg class="icon"><use href="#i-fit"/></svg>适应</button>
       <button id="mm-regen" class="btn ghost sm"><svg class="icon"><use href="#i-regen"/></svg>重新生成</button>
       <button id="mm-export" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>PNG</button>
@@ -350,7 +352,7 @@
   <div class="modal-card" style="width:min(860px,92vw);height:82vh;max-width:none;max-height:none">
     <div class="modal-head">
       <span class="mm-title"><svg class="icon"><use href="#i-essay"/></svg> 随笔</span>
-      <span id="essay-status" class="muted" style="font-size:12px;margin-left:10px"></span>
+      <span id="essay-status" class="muted" style="font-size:12px"></span>
       <div class="spacer"></div>
       <button id="essay-regen" class="btn ghost sm"><svg class="icon"><use href="#i-regen"/></svg>重新生成</button>
       <button id="essay-export-obsidian" class="btn ghost sm"><svg class="icon"><use href="#i-note"/></svg>导出 Obsidian</button>

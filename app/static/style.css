@@ -391,9 +391,14 @@ body {
   display: flex; flex-direction: column; max-height: calc(100vh - 80px);
 }
 .modal-head {
-  display: flex; align-items: center; padding: 13px 18px;
+  display: flex; align-items: center; gap: 8px; padding: 13px 18px;
   border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
+/* 成对步进控件(缩放)合成分段组 */
+.zoom-ctrl { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+.zoom-ctrl .icon-btn { border-radius: 0; padding: 5px 9px; }
+.zoom-ctrl .icon-btn + .icon-btn { border-left: 1px solid var(--border); }
+.zoom-ctrl .icon-btn:hover { background: var(--hover); }
 .modal-head .mm-title { font-family: var(--serif); font-weight: 700; font-size: 15.5px; letter-spacing: 1px; }
 .modal-body { padding: 16px 18px; overflow-y: auto; }
 .modal-body label { display: block; font-size: 11.5px; color: var(--text-2); margin: 12px 0 5px; letter-spacing: 1px; }
