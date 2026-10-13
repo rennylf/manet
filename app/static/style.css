@@ -17,6 +17,11 @@
   --warn: #9A7B2F;        /* 赭黄 */
   --radius: 3px;
   --sidebar-w: 232px;
+  /* 动效令牌:短、轻、减速落地 */
+  --t-fast: .12s;
+  --t-base: .18s;
+  --t-slow: .24s;
+  --ease-out: cubic-bezier(.22, .61, .36, 1);
   --sans: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
   --serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "STSong", "SimSun", serif;
 }
@@ -524,6 +529,39 @@ body {
 .toast .icon { color: var(--accent); }
 .toast.ok  { border-left-color: var(--ok); }  .toast.ok  .icon { color: var(--ok); }
 .toast.err { border-left-color: var(--danger); } .toast.err .icon { color: var(--danger); }
+
+/* ============ 动效系统:安静、短促、减速落地(见 design/DESIGN.md §8) ============ */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.view:not([hidden]) { animation: fade-in var(--t-slow) var(--ease-out); }
+.modal-overlay:not([hidden]) { animation: fade-in var(--t-base) ease-out; }
+.modal-overlay:not([hidden]) .modal-card { animation: rise-in var(--t-slow) var(--ease-out); }
+.dropdown-menu:not([hidden]) { animation: menu-in var(--t-fast) var(--ease-out); }
+.tab-pane:not([hidden]) { animation: fade-in var(--t-base) ease-out; }
+
+/* 内容入场:仅显式渲染时由 JS 加 .anim/.new,轮询重渲染不带 */
+.task-card.anim { animation: rise-in var(--t-slow) var(--ease-out) both; }
+.para.anim { animation: fade-in var(--t-slow) ease-out both; }
+.ai-section.anim { animation: rise-in var(--t-base) var(--ease-out) both; }
+.msg.new .bubble { animation: rise-in var(--t-base) var(--ease-out); }
+
+/* 微反馈 */
+.btn:active:not(:disabled), .icon-btn:active, .pb-btn:active,
+.f-chip:active, .tab:active, .nav-item:active { transform: scale(.97); }
+.topbar-actions .btn.has-new::after { animation: pop-in var(--t-base) var(--ease-out); }
+
+/* 转写区平滑跳转 + 脑图渲染 */
+.transcript { scroll-behavior: smooth; }
+#mm-root { animation: fade-in var(--t-slow) ease-out; }
+.mm-node rect { transition: fill var(--t-fast); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .transcript { scroll-behavior: auto; }
+}
 
 @media (max-width: 960px) {
   .detail-body { grid-template-columns: 1fr; overflow-y: auto; }

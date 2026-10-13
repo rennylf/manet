@@ -20,6 +20,7 @@ const state = {
   translation: null, displayMode: localStorage.getItem("tw_display_mode") || "orig",
   folders: [], folderFilter: null, translatePoll: null, burnPoll: null,
   derivPoll: null, seenMindmap: false, seenEssay: false,
+  homeAnim: false,   // 目录行入场动画开关:仅显式渲染(进首页/切文件夹)触发
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -114,7 +115,7 @@ function renderFolderBar() {
     const c = document.createElement("button");
     c.className = "f-chip" + ((state.folderFilter || null) === id ? " active" : "");
     c.innerHTML = label;
-    c.addEventListener("click", () => { state.folderFilter = id; renderFolderBar(); renderHome(); });
+    c.addEventListener("click", () => { state.folderFilter = id; state.homeAnim = true; renderFolderBar(); renderHome(); });
     bar.appendChild(c);
   };
   mk(null, `全部 ${state.tasks.length}`);
@@ -140,9 +141,15 @@ function renderHome() {
   const grid = $("#home-grid"), list = homeTasks();
   $("#home-count").textContent = list.length ? `${list.length} 条` : "";
   grid.innerHTML = "";
+  let ci = 0;
   for (const t of list) {
     const st = statusOf(t), card = document.createElement("div");
     card.className = "task-card";
+    if (state.homeAnim && ci < 10) {          // 入场 stagger;轮询刷新不带
+      card.classList.add("anim");
+      card.style.animationDelay = (ci * 24) + "ms";
+    }
+    ci++;
     const badges = [];
     if (t.status === "error") badges.push('<span class="badge warn">转写失败</span>');
     else if (st.dot === "running" || st.dot === "queued") badges.push(`<span class="badge run">${escapeHtml(st.text)}</span>`);
@@ -157,6 +164,7 @@ function renderHome() {
   }
   if (!list.length && state.tasks.length) grid.innerHTML = '<div class="empty-hint">没有匹配的录音</div>';
   else if (!state.tasks.length) grid.innerHTML = '<div class="empty-hint">还没有录音,上传第一个文件开始吧</div>';
+  state.homeAnim = false;
 }
 function openCardMenu(t, x, y) {
   const menu = $("#card-menu");
@@ -211,7 +219,7 @@ fetchTasks = async () => { await _origFetchTasks(); _startHomePoll(); };
 
 /* ================= 视图切换 ================= */
 function showHome() {
-  state.view = "home"; stopAllPolling(); $("#player").pause();
+  state.view = "home"; state.homeAnim = true; stopAllPolling(); $("#player").pause();
   $("#view-detail").hidden = true; $("#view-home").hidden = false;
   renderSidebar(); fetchTasks(); fetchFolders();
 }
@@ -378,6 +386,7 @@ function renderTranscript() {
   const frag = document.createDocumentFragment();
   state.paras.forEach((p, pi) => {
     const el = document.createElement("div"); el.className = "para"; el.dataset.pi = pi;
+    if (pi < 18) { el.classList.add("anim"); el.style.animationDelay = (pi * 20) + "ms"; }
     const text = document.createElement("div");
     text.className = "para-text " + (state.displayMode === "both" ? "stacked" : "flow");
     let prev = "";
@@ -631,7 +640,8 @@ function pollAnalysis() {
 async function loadAnalysis() {
   try { state.analysis = await api(`/api/tasks/${state.taskId}/analysis`); } catch { return; }
   const a = state.analysis, box = $("#ai-content"); box.innerHTML = "";
-  const sec = (title, build) => { const d = document.createElement("div"); d.className = "ai-section"; d.innerHTML = `<h4>${title}</h4>`; const b = document.createElement("div"); build(b); d.appendChild(b); box.appendChild(d); };
+  let si = 0;
+  const sec = (title, build) => { const d = document.createElement("div"); d.className = "ai-section anim"; d.style.animationDelay = (si++ * 40) + "ms"; d.innerHTML = `<h4>${title}</h4>`; const b = document.createElement("div"); build(b); d.appendChild(b); box.appendChild(d); };
   if (a.summary) sec("摘要", b => { b.className = "body"; b.textContent = a.summary; });
   if (a.chapters?.length) sec("章节速览", b => {
     for (const c of a.chapters) {
@@ -668,14 +678,16 @@ async function sendChat() {
 }
 function renderChat() {
   const box = $("#chat-messages"); box.innerHTML = "";
+  let last = null;
   for (const m of state.chatMessages) {
     const div = document.createElement("div"); div.className = "msg " + (m.role === "user" ? "user" : "ai");
     const bubble = document.createElement("div"); bubble.className = "bubble" + (m.error ? " error" : "");
     if (m.pending) bubble.innerHTML = '<span class="spinner"></span>思考中…';
     else if (m.role === "user") bubble.textContent = m.content;
     else bubble.innerHTML = renderTimeLinks(m.content);
-    div.appendChild(bubble); box.appendChild(div);
+    div.appendChild(bubble); box.appendChild(div); last = div;
   }
+  if (last) last.classList.add("new");   // 仅最新一条入场动画
   box.scrollTop = box.scrollHeight;
 }
 
