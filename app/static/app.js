@@ -147,7 +147,7 @@ function renderHome() {
     card.className = "task-card";
     if (state.homeAnim && ci < 10) {          // 入场 stagger;轮询刷新不带
       card.classList.add("anim");
-      card.style.animationDelay = (ci * 24) + "ms";
+      card.style.animationDelay = (ci * 30) + "ms";
     }
     ci++;
     const badges = [];
@@ -386,7 +386,7 @@ function renderTranscript() {
   const frag = document.createDocumentFragment();
   state.paras.forEach((p, pi) => {
     const el = document.createElement("div"); el.className = "para"; el.dataset.pi = pi;
-    if (pi < 18) { el.classList.add("anim"); el.style.animationDelay = (pi * 20) + "ms"; }
+    if (pi < 18) { el.classList.add("anim"); el.style.animationDelay = (pi * 26) + "ms"; }
     const text = document.createElement("div");
     text.className = "para-text " + (state.displayMode === "both" ? "stacked" : "flow");
     let prev = "";
@@ -641,7 +641,7 @@ async function loadAnalysis() {
   try { state.analysis = await api(`/api/tasks/${state.taskId}/analysis`); } catch { return; }
   const a = state.analysis, box = $("#ai-content"); box.innerHTML = "";
   let si = 0;
-  const sec = (title, build) => { const d = document.createElement("div"); d.className = "ai-section anim"; d.style.animationDelay = (si++ * 40) + "ms"; d.innerHTML = `<h4>${title}</h4>`; const b = document.createElement("div"); build(b); d.appendChild(b); box.appendChild(d); };
+  const sec = (title, build) => { const d = document.createElement("div"); d.className = "ai-section anim"; d.style.animationDelay = (si++ * 50) + "ms"; d.innerHTML = `<h4>${title}</h4>`; const b = document.createElement("div"); build(b); d.appendChild(b); box.appendChild(d); };
   if (a.summary) sec("摘要", b => { b.className = "body"; b.textContent = a.summary; });
   if (a.chapters?.length) sec("章节速览", b => {
     for (const c of a.chapters) {

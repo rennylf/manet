@@ -104,29 +104,31 @@ AI 功能禁用魔法棒/闪光/机器人套路（解读=页边批注线、随�
 
 | 令牌 | 值 | 用途 |
 |---|---|---|
-| `--t-fast` | 120ms | 颜色/边框/填充/菜单 |
-| `--t-base` | 180ms | 组件入场、toast、气泡、角标 |
-| `--t-slow` | 240ms | 视图/弹窗/文本块入场 |
-| `--ease-out` | `cubic-bezier(.22,.61,.36,1)` | 统一减速曲线 |
+| `--t-fast` | 160ms | 颜色/边框/填充/悬停/菜单 |
+| `--t-base` | 260ms | 组件入场、toast、气泡、角标 |
+| `--t-slow` | 360ms | 视图/弹窗/文本块入场 |
+| `--ease-out` | `cubic-bezier(.25,.8,.3,1)` | 统一减速曲线：起势轻、落地绵 |
 
+所有 transition/animation 的时长必须取自令牌，禁止散落硬编码；
+悬停反馈一律 `--t-fast`，入场一律 `--t-base`/`--t-slow`。
 禁止：弹跳/回弹曲线、视差、>4% 的放大、循环动画（功能性 `spin`/`pulse` 除外）。
 
 ### 8.2 场景清单
 
 | 场景 | 动效 |
 |---|---|
-| 视图切换（首页 ↔ 详情） | fade-in 240ms |
-| 弹窗打开 | 遮罩 fade 180ms + 卡片 rise-in(6px) 240ms；关闭即时 |
-| 下拉菜单 | menu-in(−4px) 120ms |
-| Tab 切换 | fade-in 180ms |
-| Toast | rise-in 180ms |
-| 目录行 | rise-in 240ms，逐行 stagger 24ms（封顶 10 行）；**仅显式渲染**（进入首页/切文件夹；搜索逐键刷新不动画），轮询刷新不动画 |
-| 转写段落 | 渲染时 fade-in 240ms，前 18 段 stagger 20ms |
-| 解读区块 | rise-in 180ms，逐块 stagger 40ms |
-| 问答新消息 | 仅新气泡 rise-in 180ms |
+| 视图切换（首页 ↔ 详情） | fade-in 360ms |
+| 弹窗打开 | 遮罩 fade 260ms + 卡片 rise-in(6px) 360ms；关闭即时 |
+| 下拉菜单 | menu-in(−4px) 160ms |
+| Tab 切换 | fade-in 260ms |
+| Toast | rise-in 260ms |
+| 目录行 | rise-in 360ms，逐行 stagger 30ms（封顶 10 行）；**仅显式渲染**（进入首页/切文件夹；搜索逐键刷新不动画），轮询刷新不动画 |
+| 转写段落 | 渲染时 fade-in 360ms，前 18 段 stagger 26ms |
+| 解读区块 | rise-in 260ms，逐块 stagger 50ms |
+| 问答新消息 | 仅新气泡 rise-in 260ms |
 | 按钮按压 | scale(.97)，跟 --t-fast |
-| 角标出现 | pop-in 180ms；出现后静止，不循环 |
-| 脑图渲染 | fade-in 240ms；节点填充 hover 120ms |
+| 角标出现 | pop-in 260ms；出现后静止，不循环 |
+| 脑图渲染 | fade-in 360ms；节点填充 hover 160ms |
 | 跳转原声 | 转写区 smooth scroll |
 | 运行态 | 环 spinner / 状态点 pulse（仅允许的功能循环） |
 
