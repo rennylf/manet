@@ -8,6 +8,8 @@ window.onerror = (msg, src, line, col) => {
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+/* Manet 图标系统:统一从 sprite 取用 */
+const icon = (id, cls = "") => `<svg class="icon ${cls}"><use href="#${id}"/></svg>`;
 
 const state = {
   tasks: [], view: "home", taskId: null, task: null,
@@ -102,22 +104,22 @@ function renderFolderBar() {
   const mk = (id, label) => {
     const c = document.createElement("button");
     c.className = "f-chip" + ((state.folderFilter || null) === id ? " active" : "");
-    c.textContent = label;
+    c.innerHTML = label;
     c.addEventListener("click", () => { state.folderFilter = id; renderFolderBar(); renderHome(); });
     bar.appendChild(c);
   };
   mk(null, `全部 ${state.tasks.length}`);
-  for (const f of state.folders) mk(f.id, `📁 ${f.name} ${counts[f.id] || 0}`);
+  for (const f of state.folders) mk(f.id, `${icon("i-folder", "icon-14")} ${escapeHtml(f.name)} ${counts[f.id] || 0}`);
   if (state.folderFilter) {
     const mkAct = (txt, fn) => { const s = document.createElement("span"); s.className = "f-act"; s.textContent = txt; s.addEventListener("click", fn); bar.appendChild(s); };
-    mkAct("✏️ 重命名", async () => {
+    mkAct("重命名", async () => {
       const f = state.folders.find(x => x.id === state.folderFilter);
       const n = prompt("文件夹新名称:", f.name);
       if (!n?.trim()) return;
       await api(`/api/folders/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
       fetchFolders();
     });
-    mkAct("🗑 删除", async () => {
+    mkAct("删除", async () => {
       const f = state.folders.find(x => x.id === state.folderFilter);
       if (!confirm(`删除文件夹「${f.name}」?夹内录音回到根目录。`)) return;
       await api(`/api/folders/${f.id}`, { method: "DELETE" });
@@ -135,11 +137,11 @@ function renderHome() {
     const badges = [];
     if (t.status === "error") badges.push('<span class="badge warn">转写失败</span>');
     else if (st.dot === "running" || st.dot === "queued") badges.push(`<span class="badge run">${escapeHtml(st.text)}</span>`);
-    if (t.polish_status === "done" || t.polished) badges.push('<span class="badge ai">AI 润色</span>');
+    if (t.polish_status === "done" || t.polished) badges.push('<span class="badge ai">已标点恢复</span>');
     if (t.analyzed) badges.push('<span class="badge ai">已解读</span>');
     if (t.translation_status === "done") badges.push('<span class="badge ai">已翻译</span>');
     if (t.burn_status === "done") badges.push('<span class="badge ai">字幕视频</span>');
-    card.innerHTML = `<div class="c-top"><span class="status-dot ${st.dot}"></span><span class="c-title">${escapeHtml(titleOf(t))}</span><button class="card-menu-btn" title="管理">⋯</button></div><div class="c-meta">${fmtDate(t.created_at)}${t.duration ? " · " + fmtDur(t.duration) : ""}${t.language ? " · " + (LANG_NAMES[t.language] || t.language) : ""}</div><div class="c-badges">${badges.join("")}</div>`;
+    card.innerHTML = `<div class="c-top"><span class="status-dot ${st.dot}"></span><span class="c-title">${escapeHtml(titleOf(t))}</span><button class="card-menu-btn" title="管理">${icon("i-more", "icon-14")}</button></div><div class="c-meta">${fmtDate(t.created_at)}${t.duration ? " · " + fmtDur(t.duration) : ""}${t.language ? " · " + (LANG_NAMES[t.language] || t.language) : ""}</div><div class="c-badges">${badges.join("")}</div>`;
     card.addEventListener("click", () => openDetail(t.id));
     card.querySelector(".card-menu-btn").addEventListener("click", e => { e.stopPropagation(); openCardMenu(t, e.clientX, e.clientY); });
     grid.appendChild(card);
@@ -149,9 +151,9 @@ function renderHome() {
 }
 function openCardMenu(t, x, y) {
   const menu = $("#card-menu");
-  const items = ['<div class="cm-head">移动到</div><a data-move="">📄 根目录</a>'];
-  for (const f of state.folders) if (f.id !== t.folder) items.push(`<a data-move="${f.id}">📁 ${escapeHtml(f.name)}</a>`);
-  items.push('<div class="cm-sep"></div><a class="danger" data-del="1">🗑 删除录音…</a>');
+  const items = ['<div class="cm-head">移动到</div><a data-move="">根目录</a>'];
+  for (const f of state.folders) if (f.id !== t.folder) items.push(`<a data-move="${f.id}">${escapeHtml(f.name)}</a>`);
+  items.push('<div class="cm-sep"></div><a class="danger" data-del="1">删除录音…</a>');
   menu.innerHTML = items.join("");
   menu.hidden = false;
   const r = menu.getBoundingClientRect();
@@ -212,7 +214,7 @@ function openDetail(taskId) {
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
   $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>加载中…</div>';
-  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「✨ Scriba 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
+  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「Scriba 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true;
   renderSidebar(); pollTask(); loadNotes();
@@ -318,8 +320,8 @@ function setupPlayer(t) {
 let playerReadyFor = null;
 
 $("#pb-play").addEventListener("click", () => { player.paused ? player.play() : player.pause(); });
-player.addEventListener("play", () => { $("#pb-play").textContent = "⏸"; });
-player.addEventListener("pause", () => { $("#pb-play").textContent = "▶"; });
+player.addEventListener("play", () => { $("#pb-play").innerHTML = icon("i-pause", "icon-18"); });
+player.addEventListener("pause", () => { $("#pb-play").innerHTML = icon("i-play", "icon-18"); });
 player.addEventListener("loadedmetadata", () => {
   $("#pb-seek").max = Math.floor(player.duration * 10);
   $("#pb-dur").textContent = fmtTs(player.duration);
@@ -333,7 +335,7 @@ let pbDragging = false;
 $("#pb-seek").addEventListener("input", () => { pbDragging = true; });
 $("#pb-seek").addEventListener("change", e => { player.currentTime = e.target.value / 10; pbDragging = false; });
 $("#pb-speed").addEventListener("change", e => { player.playbackRate = parseFloat(e.target.value); });
-$("#pb-mute").addEventListener("click", () => { player.muted = !player.muted; $("#pb-mute").textContent = player.muted ? "🔇" : "🔊"; });
+$("#pb-mute").addEventListener("click", () => { player.muted = !player.muted; $("#pb-mute").innerHTML = icon(player.muted ? "i-mute" : "i-volume", "icon-18"); });
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
   if (e.code === "Space" && state.view === "detail") { e.preventDefault(); player.paused ? player.play() : player.pause(); }
@@ -343,7 +345,7 @@ document.addEventListener("keydown", e => {
 async function loadTranscript() {
   const data = await api(`/api/tasks/${state.taskId}/transcript`);
   state.sentences = data.sentences || [];
-  $("#task-status").textContent = "✅ 转写完成" + (data.language ? ` · ${LANG_NAMES[data.language] || data.language}` : "") + (data.polished ? " · 已 AI 润色" : "");
+  $("#task-status").textContent = "转写完成" + (data.language ? ` · ${LANG_NAMES[data.language] || data.language}` : "") + (data.polished ? " · 已标点恢复" : "");
   renderTranscript();
 }
 function groupParagraphs(sentences) {
@@ -491,7 +493,7 @@ function renderDetailHead(t) {
   if (t.duration) parts.push(fmtDur(t.duration));
   $("#detail-meta").textContent = parts.join(" · ") + " · " + st.text;
   if (state.view === "detail") {
-    $("#task-status").textContent = st.dot === "done" ? "✅ 转写完成" : st.dot === "error" ? "❌ 失败" : "🔄 " + st.text;
+    $("#task-status").textContent = st.dot === "done" ? "转写完成" : st.dot === "error" ? "失败" : st.text;
   }
 }
 
@@ -540,7 +542,7 @@ function pollTranslate() {
       const t = await api(`/api/tasks/${state.taskId}`); state.task = t;
       if (t.translation_status === "done") { clearInterval(state.translatePoll); state.translatePoll = null; $("#btn-translate").disabled = false; await loadTranslation(); renderTranscript(); fetchTasks(); toast("翻译完成"); }
       else if (t.translation_status === "error") { clearInterval(state.translatePoll); state.translatePoll = null; $("#btn-translate").disabled = false; toast("翻译失败:" + (t.translation_error || ""), 5000); }
-      else { $("#task-status").textContent = "🌐 " + (t.stage || "翻译中"); }
+      else { $("#task-status").textContent = t.stage || "翻译中"; }
     } catch {}
   }, 2000);
 }
@@ -574,7 +576,7 @@ function pollPolish() {
       const t = await api(`/api/tasks/${state.taskId}`); state.task = t;
       if (t.polish_status === "done") { clearInterval(state.polishPoll); state.polishPoll = null; $("#btn-analyze").disabled = false; await loadTranscript(); fetchTasks(); toast("标点恢复完成"); }
       else if (t.polish_status === "error") { clearInterval(state.polishPoll); state.polishPoll = null; $("#btn-analyze").disabled = false; toast("标点恢复失败:" + (t.polish_error || ""), 5000); }
-      else { $("#task-status").textContent = "✨ " + (t.stage || "AI 标点恢复中"); }
+      else { $("#task-status").textContent = t.stage || "标点恢复中"; }
     } catch {}
   }, 2000);
 }
@@ -608,8 +610,8 @@ async function loadAnalysis() {
   try { state.analysis = await api(`/api/tasks/${state.taskId}/analysis`); } catch { return; }
   const a = state.analysis, box = $("#ai-content"); box.innerHTML = "";
   const sec = (title, build) => { const d = document.createElement("div"); d.className = "ai-section"; d.innerHTML = `<h4>${title}</h4>`; const b = document.createElement("div"); build(b); d.appendChild(b); box.appendChild(d); };
-  if (a.summary) sec("📝 摘要", b => { b.className = "body"; b.textContent = a.summary; });
-  if (a.chapters?.length) sec("📑 章节速览", b => {
+  if (a.summary) sec("摘要", b => { b.className = "body"; b.textContent = a.summary; });
+  if (a.chapters?.length) sec("章节速览", b => {
     for (const c of a.chapters) {
       const el = document.createElement("div"); el.className = "chapter";
       el.innerHTML = `<div class="c-title"><span class="c-time">${escapeHtml(c.time || "")}</span>${escapeHtml(c.title || "")}</div>${c.detail ? `<div class="c-detail">${escapeHtml(c.detail)}</div>` : ""}`;
@@ -617,8 +619,8 @@ async function loadAnalysis() {
       b.appendChild(el);
     }
   });
-  if (a.todos?.length) sec("✅ 待办事项", b => { for (const t of a.todos) { const el = document.createElement("div"); el.className = "todo"; el.innerHTML = `<span>${escapeHtml(t.task || "")}</span>` + ((t.owner || t.due) ? `<span class="t-owner">${t.owner ? "@" + escapeHtml(t.owner) : ""}${t.due ? " · " + escapeHtml(t.due) : ""}</span>` : ""); b.appendChild(el); } });
-  if (a.keywords?.length) sec("🏷️ 关键词", b => { b.className = "keywords"; b.innerHTML = a.keywords.map(k => `<span>${escapeHtml(k)}</span>`).join(""); });
+  if (a.todos?.length) sec("待办事项", b => { for (const t of a.todos) { const el = document.createElement("div"); el.className = "todo"; el.innerHTML = `<span>${escapeHtml(t.task || "")}</span>` + ((t.owner || t.due) ? `<span class="t-owner">${t.owner ? "@" + escapeHtml(t.owner) : ""}${t.due ? " · " + escapeHtml(t.due) : ""}</span>` : ""); b.appendChild(el); } });
+  if (a.keywords?.length) sec("关键词", b => { b.className = "keywords"; b.innerHTML = a.keywords.map(k => `<span>${escapeHtml(k)}</span>`).join(""); });
   if (!box.children.length) box.innerHTML = '<div class="empty-hint">分析结果为空。</div>';
 }
 
@@ -639,7 +641,7 @@ async function sendChat() {
   try {
     const r = await api(`/api/tasks/${state.taskId}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: state.chatMessages.filter(m => !m.pending).slice(-20) }) });
     state.chatMessages.pop(); state.chatMessages.push({ role: "assistant", content: r.reply });
-  } catch (e) { state.chatMessages.pop(); state.chatMessages.push({ role: "assistant", content: "⚠️ " + e.message, error: true }); }
+  } catch (e) { state.chatMessages.pop(); state.chatMessages.push({ role: "assistant", content: e.message, error: true }); }
   finally { state.chatBusy = false; $("#btn-chat-send").disabled = false; renderChat(); saveChatLog(); }
 }
 function renderChat() {
@@ -662,7 +664,7 @@ $("#my-notes").addEventListener("input", () => {
   clearTimeout(state.notesTimer);
   state.notesTimer = setTimeout(async () => {
     try { await api(`/api/tasks/${state.taskId}/notes`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: $("#my-notes").value }) });
-      $("#notes-status").textContent = "✓ 已保存 " + new Date().toLocaleTimeString("zh-CN");
+      $("#notes-status").textContent = "已保存 " + new Date().toLocaleTimeString("zh-CN");
     } catch (e) { $("#notes-status").textContent = "保存失败:" + e.message; }
   }, 800);
 });
@@ -707,7 +709,7 @@ async function loadLocalModelStatus() {
       el.textContent = `下载中 ${s.downloaded_mb}MB / ${s.total_mb || "?"}MB`;
       if (!localModelPoll) { localModelPoll = setInterval(async () => { await loadLocalModelStatus(); const st = await api("/api/settings/local-model"); if (!st.downloading) { clearInterval(localModelPoll); localModelPoll = null; toast(st.error ? "下载失败:" + st.error : "本地模型已就绪"); } }, 2000); }
     } else if (s.error) { el.textContent = "下载失败:" + s.error; }
-    else if (s.installed) { el.textContent = `✓ 已就绪(${s.size_mb}MB)${s.loaded ? ",已载入内存" : ""}`; }
+    else if (s.installed) { el.textContent = `已就绪(${s.size_mb}MB)${s.loaded ? ",已载入内存" : ""}`; }
     else { el.textContent = "未下载"; }
   } catch {}
 }
@@ -719,7 +721,7 @@ async function testSettings(fetchModels) {
     const r = await api("/api/settings/test", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ llm_base_url: $("#set-base").value.trim(), llm_api_key: $("#set-key").value.trim() }) });
     if (!r.ok) { setSetResult(false, "连接失败:" + r.error); return; }
-    setSetResult(true, `✓ 连接成功,共 ${r.models.length} 个可用模型`);
+    setSetResult(true, `连接成功,共 ${r.models.length} 个可用模型`);
     if (fetchModels) { const dl = $("#model-list"); dl.innerHTML = ""; for (const m of r.models) { const o = document.createElement("option"); o.value = m; dl.appendChild(o); } toast("模型列表已更新"); }
   } catch (e) { setSetResult(false, "测试失败:" + e.message); }
 }
@@ -869,23 +871,23 @@ function jobsOf(t) {
     let s = st; if (st === "running" && t.cancel_requested) s = "canceling"; else if (st === "running" && t.paused) s = "paused";
     out.push(Object.assign({ icon, kind, state: s, stage: stage || "", title: titleOf(t), taskId: t.id, canPause: kind !== "转写" }, extra));
   };
-  if (t.status === "queued") push("🎙", "转写", "running", "排队中");
-  else if (t.status === "transcribing") push("🎙", "转写", "running", t.stage);
-  else if (t.status === "error") push("🎙", "转写", "error", t.error);
-  else if (t.status === "cancelled") push("🎙", "转写", "cancelled", "已终止");
-  if (t.polish_status === "running") push("✨", "AI 标点", "running", t.stage);
-  else if (t.polish_status === "error") push("✨", "AI 标点", "error", t.polish_error);
-  else if (t.polish_status === "cancelled") push("✨", "AI 标点", "cancelled", "已终止");
-  if (t.translation_status === "running") push("🌐", "翻译", "running", t.stage);
-  else if (t.translation_status === "error") push("🌐", "翻译", "error", t.translation_error);
-  else if (t.translation_status === "cancelled") push("🌐", "翻译", "cancelled", "已终止");
-  if (t.analysis_status === "running") push("📝", "Scriba 解读", "running", "生成中");
-  else if (t.analysis_status === "error") push("📝", "Scriba 解读", "error", t.analysis_error);
-  else if (t.analysis_status === "cancelled") push("📝", "Scriba 解读", "cancelled", "已终止");
-  if (t.burn_status === "running") push("🎬", "字幕封装", "running", "正在封装");
-  else if (t.burn_status === "done") push("🎬", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
-  else if (t.burn_status === "error") push("🎬", "字幕封装", "error", t.burn_error);
-  else if (t.burn_status === "cancelled") push("🎬", "字幕封装", "cancelled", "已终止");
+  if (t.status === "queued") push("i-wave", "转写", "running", "排队中");
+  else if (t.status === "transcribing") push("i-wave", "转写", "running", t.stage);
+  else if (t.status === "error") push("i-wave", "转写", "error", t.error);
+  else if (t.status === "cancelled") push("i-wave", "转写", "cancelled", "已终止");
+  if (t.polish_status === "running") push("i-punct", "标点恢复", "running", t.stage);
+  else if (t.polish_status === "error") push("i-punct", "标点恢复", "error", t.polish_error);
+  else if (t.polish_status === "cancelled") push("i-punct", "标点恢复", "cancelled", "已终止");
+  if (t.translation_status === "running") push("i-translate", "翻译", "running", t.stage);
+  else if (t.translation_status === "error") push("i-translate", "翻译", "error", t.translation_error);
+  else if (t.translation_status === "cancelled") push("i-translate", "翻译", "cancelled", "已终止");
+  if (t.analysis_status === "running") push("i-interpret", "Scriba 解读", "running", "生成中");
+  else if (t.analysis_status === "error") push("i-interpret", "Scriba 解读", "error", t.analysis_error);
+  else if (t.analysis_status === "cancelled") push("i-interpret", "Scriba 解读", "cancelled", "已终止");
+  if (t.burn_status === "running") push("i-film", "字幕封装", "running", "正在封装");
+  else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
+  else if (t.burn_status === "error") push("i-film", "字幕封装", "error", t.burn_error);
+  else if (t.burn_status === "cancelled") push("i-film", "字幕封装", "cancelled", "已终止");
   return out;
 }
 function allJobs() {
@@ -901,12 +903,12 @@ function renderJobs() {
     const row = document.createElement("div");
     row.className = "job-row" + (j.state === "await" ? " done" : j.state === "error" ? " err" : j.state === "cancelled" ? " stop" : j.state === "paused" ? " paused" : "");
     let act = "";
-    if (j.state === "await") act = `<button class="btn primary sm" data-save="${j.taskId}">💾 保存文件</button>`;
-    else if (j.state === "running") act = (j.canPause ? `<button class="btn ghost sm" data-pause="${j.taskId}" title="暂停">⏸</button>` : "") + `<button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">⛔</button><span class="spinner"></span>`;
-    else if (j.state === "paused") act = `<button class="btn ghost sm" data-resume="${j.taskId}" title="继续">▶</button><button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">⛔</button>`;
+    if (j.state === "await") act = `<button class="btn primary sm" data-save="${j.taskId}">${icon("i-download")}保存文件</button>`;
+    else if (j.state === "running") act = (j.canPause ? `<button class="btn ghost sm" data-pause="${j.taskId}" title="暂停">${icon("i-pause")}</button>` : "") + `<button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button><span class="spinner"></span>`;
+    else if (j.state === "paused") act = `<button class="btn ghost sm" data-resume="${j.taskId}" title="继续">${icon("i-play")}</button><button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button>`;
     else if (j.state === "canceling") act = '<button class="btn ghost sm" disabled>终止中…</button><span class="spinner"></span>';
     const stage = j.stage || { running: "进行中", paused: "已暂停", canceling: "终止中", await: "完成", error: "失败", cancelled: "已终止" }[j.state];
-    row.innerHTML = `<span class="j-icon">${j.icon}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
+    row.innerHTML = `<span class="j-icon">${icon(j.icon, "icon-18" + (j.state === "running" ? " spin" : ""))}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
     box.appendChild(row);
   }
   box.querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", () => { const t = state.tasks.find(x => x.id === b.dataset.save); const a = document.createElement("a"); a.href = `/api/tasks/${b.dataset.save}/burned`; a.download = t?.burned_path?.split("/").pop() || "subbed.mp4"; document.body.appendChild(a); a.click(); a.remove(); toast("开始下载"); }));
@@ -919,7 +921,8 @@ async function jobCancel(id) { if (!confirm("终止任务?进行中的工作会�
 function updateFab() {
   const jobs = allJobs(), running = jobs.filter(j => j.state === "running").length, awaiting = jobs.filter(j => j.state === "await").length;
   const fab = $("#job-fab"); fab.hidden = !(running || awaiting);
-  $("#job-fab-icon").textContent = running ? "⏳" : "💾"; $("#job-fab-count").textContent = String(running || awaiting);
+  $("#job-fab-icon").innerHTML = icon(running ? "i-running" : "i-download", "icon-18" + (running ? " spin" : ""));
+  $("#job-fab-count").textContent = String(running || awaiting);
   fab.classList.toggle("attention", !running && awaiting > 0);
 }
 let jobsPoll = null;

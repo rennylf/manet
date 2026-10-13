@@ -4,18 +4,57 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manet · 思想仍在 — 本地声音转写与解读</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
+<!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle class="f" cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><line x1="10" y1="13" x2="14" y2="13"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><line x1="4" y1="6" x2="11" y2="6"/><line x1="17" y1="6" x2="20" y2="6"/><circle cx="14" cy="6" r="2.4"/><line x1="4" y1="12" x2="5" y2="12"/><line x1="11" y1="12" x2="20" y2="12"/><circle cx="8" cy="12" r="2.4"/><line x1="4" y1="18" x2="13" y2="18"/><line x1="19" y1="18" x2="20" y2="18"/><circle cx="16" cy="18" r="2.4"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-folder-new" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><line x1="12" y1="11" x2="12" y2="15.5"/><line x1="9.8" y1="13.2" x2="14.2" y2="13.2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle class="f" cx="5" cy="12" r="1.6"/><circle class="f" cx="12" cy="12" r="1.6"/><circle class="f" cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><polyline points="11 5 4 12 11 19"/><line x1="4" y1="12" x2="20" y2="12"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20l1.2-4.2L16.6 4.4a2 2 0 0 1 2.8 2.8L8 18.8z"/><line x1="14.6" y1="6.4" x2="17.4" y2="9.2"/></symbol>
+  <symbol id="i-translate" viewBox="0 0 24 24"><line x1="4" y1="5" x2="13" y2="5"/><line x1="4" y1="9" x2="10" y2="9"/><line x1="17" y1="4" x2="17" y2="12"/><polyline points="14 9.5 17 12.5 20 9.5"/><line x1="7" y1="15" x2="20" y2="15"/><line x1="11" y1="19" x2="20" y2="19"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/><path d="M12 4c2.5 2.4 4 5.1 4 8s-1.5 5.6-4 8c-2.5-2.4-4-5.1-4-8s1.5-5.6 4-8z"/></symbol>
+  <symbol id="i-export" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="13" x2="12" y2="3"/><polyline points="8 7 12 3 16 7"/></symbol>
+  <symbol id="i-mindmap" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="17.5" cy="6" r="2.2"/><circle cx="17.5" cy="18" r="2.2"/><line x1="8.2" y1="10.9" x2="15.5" y2="7"/><line x1="8.2" y1="13.1" x2="15.5" y2="17"/></symbol>
+  <symbol id="i-essay" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><line x1="9.5" y1="7" x2="14.5" y2="7"/><line x1="8.5" y1="11" x2="15.5" y2="11"/><line x1="8.5" y1="14" x2="15.5" y2="14"/><line x1="8.5" y1="17" x2="13" y2="17"/></symbol>
+  <symbol id="i-interpret" viewBox="0 0 24 24"><line x1="5" y1="4" x2="5" y2="20"/><line x1="5" y1="8" x2="7.5" y2="8"/><line x1="5" y1="15" x2="7.5" y2="15"/><line x1="11" y1="7" x2="20" y2="7"/><line x1="11" y1="12" x2="20" y2="12"/><line x1="11" y1="17" x2="17" y2="17"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 4v-4H6a2 2 0 0 1-2-2z"/><path d="M10.6 8.6a1.7 1.7 0 1 1 2.4 1.9c-.6.3-1 .7-1 1.4"/><circle class="f" cx="12" cy="13.6" r="0.9"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><line x1="8.5" y1="12" x2="15.5" y2="12"/><line x1="8.5" y1="16" x2="13" y2="16"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 5.5v13l10.5-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><line x1="9" y1="5.5" x2="9" y2="18.5"/><line x1="15" y1="5.5" x2="15" y2="18.5"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 10v4h3l4 3.5v-11L7 10z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.5 7.5a7 7 0 0 1 0 9"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 10v4h3l4 3.5v-11L7 10z"/><line x1="16" y1="10" x2="20" y2="14"/><line x1="20" y1="10" x2="16" y2="14"/></symbol>
+  <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4.5 16.5a8.5 8.5 0 1 1 15 0"/><line x1="12" y1="16.5" x2="15.8" y2="11.6"/><circle class="f" cx="12" cy="16.5" r="1.4"/></symbol>
+  <symbol id="i-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><polyline points="8.5 12.2 11 14.7 15.5 9.8"/></symbol>
+  <symbol id="i-running" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-8-8"/></symbol>
+  <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="9.5" y1="9.5" x2="14.5" y2="14.5"/><line x1="14.5" y1="9.5" x2="9.5" y2="14.5"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle class="f" cx="12" cy="12" r="1.6"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><line x1="6" y1="10" x2="6" y2="14"/><line x1="10" y1="7" x2="10" y2="17"/><line x1="14" y1="4.5" x2="14" y2="19.5"/><line x1="18" y1="8.5" x2="18" y2="15.5"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="17" y1="5" x2="17" y2="19"/><line x1="3" y1="9.5" x2="7" y2="9.5"/><line x1="3" y1="14.5" x2="7" y2="14.5"/><line x1="17" y1="9.5" x2="21" y2="9.5"/><line x1="17" y1="14.5" x2="21" y2="14.5"/></symbol>
+  <symbol id="i-punct" viewBox="0 0 24 24"><circle class="f" cx="8" cy="17" r="1.7"/><path d="M16 5c2 2.4 3 4.6 3 6.8 0 2.6-1.4 4.2-3.2 5.2"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></symbol>
+  <symbol id="i-regen" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><polyline points="20 4 20 8.5 15.5 8.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="14"/><polyline points="8 10 12 14 16 10"/><line x1="5" y1="19" x2="19" y2="19"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M15 4h4a1 1 0 0 1 1 1v4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/><path d="M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+  <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/><line x1="11" y1="8.5" x2="11" y2="13.5"/><line x1="8.5" y1="11" x2="13.5" y2="11"/></symbol>
+  <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/><line x1="8.5" y1="11" x2="13.5" y2="11"/></symbol>
+</svg>
 <div id="app">
 
   <!-- ================= 侧边栏 ================= -->
   <aside id="sidebar">
-    <div class="logo">Manet<span>· 思想仍在</span></div>
-    <button id="btn-side-upload" class="btn primary side-btn">＋ 导入音视频</button>
+    <div class="logo"><svg class="icon icon-20 logo-mark"><use href="#i-mark"/></svg>Manet<span>· 思想仍在</span></div>
+    <button id="btn-side-upload" class="btn primary side-btn"><svg class="icon"><use href="#i-import"/></svg>导入音视频</button>
     <button class="btn side-btn soon" disabled title="路线图功能">实时录音 · 未至</button>
-    <div id="nav-home" class="nav-item active">📚 档案库</div>
-    <div id="nav-settings" class="nav-item">⚙️ 设置</div>
+    <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>档案库</div>
+    <div id="nav-settings" class="nav-item"><svg class="icon"><use href="#i-settings"/></svg>设置</div>
     <div class="side-search">
       <input id="search-input" type="search" placeholder="搜索档案…">
     </div>
@@ -30,8 +69,7 @@
     <section id="view-home" class="view">
       <div class="home-scroll">
         <div id="dropzone" class="home-hero">
-          <div class="dz-icon">📁</div>
-          <h2>把声音放进来,或 <span class="link">点击选择</span></h2>
+          <h2><svg class="icon icon-14" style="color:var(--accent)"><use href="#i-import"/></svg> 把声音放进来,或 <span class="link">点击选择</span></h2>
           <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv,最大 2GB ·
           转写与解读,只在你自己的机器上发生</p>
         </div>
@@ -44,7 +82,7 @@
           <h3>留存目录</h3>
           <span id="home-count" class="count"></span>
           <div class="spacer"></div>
-          <button id="btn-new-folder" class="btn ghost sm">📁 新建文件夹</button>
+          <button id="btn-new-folder" class="btn ghost sm"><svg class="icon"><use href="#i-folder-new"/></svg>新建文件夹</button>
         </div>
         <div id="folder-bar" class="folder-bar"></div>
         <div id="home-grid" class="card-grid"></div>
@@ -56,34 +94,34 @@
 
       <!-- 顶栏:返回 + 标题 + 操作 -->
       <div class="detail-topbar">
-        <button id="btn-back" class="icon-btn" title="返回内容库">←</button>
+        <button id="btn-back" class="icon-btn" title="返回档案库"><svg class="icon icon-18"><use href="#i-back"/></svg></button>
         <div class="title-block">
           <h2 id="detail-title" contenteditable="plaintext-only" title="点击可改名"></h2>
           <div id="detail-meta"></div>
         </div>
         <div class="topbar-actions">
-          <button id="btn-mindmap" class="btn ghost sm" title="AI 思维导图">🧠 脑图</button>
-          <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔">✍️ 随笔</button>
-          <button id="btn-analyze" class="btn primary sm" title="Scriba 通读留存:摘要 / 章节 / 待办 / 关键词">✨ Scriba 解读</button>
+          <button id="btn-mindmap" class="btn ghost sm" title="思维导图"><svg class="icon"><use href="#i-mindmap"/></svg>脑图</button>
+          <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔"><svg class="icon"><use href="#i-essay"/></svg>随笔</button>
+          <button id="btn-analyze" class="btn primary sm" title="Scriba 通读留存:摘要 / 章节 / 待办 / 关键词"><svg class="icon"><use href="#i-interpret"/></svg>Scriba 解读</button>
           <div class="dropdown">
-            <button id="btn-export" class="btn ghost sm">⬇️ 导出</button>
+            <button id="btn-export" class="btn ghost sm"><svg class="icon"><use href="#i-export"/></svg>导出</button>
             <div id="export-menu" class="dropdown-menu" hidden>
               <a data-format="md">Markdown(当前显示)</a>
               <a data-format="txt">TXT(当前显示)</a>
               <a data-format="srt" data-lang="orig">SRT 字幕 · 原文</a>
               <a data-format="srt" data-lang="zh">SRT 字幕 · 中文</a>
               <a data-format="srt" data-lang="both">SRT 字幕 · 双语</a>
-              <a id="menu-burn-mp4">🎬 封装软字幕 · MP4</a>
-              <a id="menu-burn-mkv">🎬 封装软字幕 · MKV</a>
+              <a id="menu-burn-mp4">封装软字幕 · MP4</a>
+              <a id="menu-burn-mkv">封装软字幕 · MKV</a>
               <div class="cm-sep"></div>
-              <a id="menu-obsidian">📓 导出 Obsidian</a>
+              <a id="menu-obsidian">导出 Obsidian</a>
             </div>
           </div>
           <div class="dropdown">
-            <button id="btn-more" class="btn ghost sm">⋯</button>
+            <button id="btn-more" class="btn ghost sm" title="更多操作"><svg class="icon"><use href="#i-more"/></svg></button>
             <div id="more-menu" class="dropdown-menu" hidden>
-              <a id="menu-polish">✨ 标点恢复</a>
-              <a id="menu-retranscribe">🔁 重新转写…</a>
+              <a id="menu-polish">标点恢复</a>
+              <a id="menu-retranscribe">重新转写…</a>
             </div>
           </div>
         </div>
@@ -97,15 +135,16 @@
           </div>
           <div class="transcript-toolbar">
             <span id="task-status" class="tag"></span>
+            <svg class="icon icon-14 lang-mark" title="显示语言"><use href="#i-globe"/></svg>
             <div class="seg-ctrl" id="lang-ctrl">
               <button data-mode="orig" class="active">原文</button>
               <button data-mode="zh">中文</button>
               <button data-mode="both">双语</button>
             </div>
-            <button id="btn-translate" class="btn ghost sm">🌐 翻译</button>
+            <button id="btn-translate" class="btn ghost sm"><svg class="icon"><use href="#i-translate"/></svg>翻译</button>
             <div class="spacer"></div>
             <input id="transcript-search" class="tsearch" type="search" placeholder="搜索正文…">
-            <button id="btn-edit" class="btn ghost sm">✏️ 编辑</button>
+            <button id="btn-edit" class="btn ghost sm"><svg class="icon"><use href="#i-edit"/></svg>编辑</button>
             <button id="btn-save-edit" class="btn primary sm" hidden>保存修改</button>
           </div>
           <div id="transcript" class="transcript">
@@ -122,7 +161,7 @@
           <div id="tab-ai" class="tab-pane">
             <div id="ai-status" class="ai-status" hidden></div>
             <div id="ai-content" class="ai-content">
-              <div class="empty-hint">点击右上角「✨ Scriba 解读」——<br>摘要、章节速览、待办与关键词。</div>
+              <div class="empty-hint">点击右上角「Scriba 解读」——<br>摘要、章节速览、待办与关键词。</div>
             </div>
           </div>
           <div id="tab-chat" class="tab-pane" hidden>
@@ -143,10 +182,11 @@
 
       <!-- 底部播放器栏(固定) -->
       <div id="player-bar" class="player-bar">
-        <button id="pb-play" class="pb-btn" title="播放/暂停(空格)">▶</button>
+        <button id="pb-play" class="pb-btn" title="播放/暂停(空格)"><svg class="icon icon-18"><use href="#i-play"/></svg></button>
         <span id="pb-cur" class="pb-time">00:00</span>
         <input id="pb-seek" type="range" min="0" max="1000" value="0" class="pb-seek">
         <span id="pb-dur" class="pb-time">00:00</span>
+        <svg class="icon icon-14 speed-mark" title="播放倍速"><use href="#i-speed"/></svg>
         <select id="pb-speed" class="pb-speed" title="播放倍速">
           <option value="0.5">0.5×</option>
           <option value="0.75">0.75×</option>
@@ -155,7 +195,7 @@
           <option value="1.5">1.5×</option>
           <option value="2">2×</option>
         </select>
-        <button id="pb-mute" class="pb-btn" title="静音">🔊</button>
+        <button id="pb-mute" class="pb-btn" title="静音"><svg class="icon icon-18"><use href="#i-volume"/></svg></button>
       </div>
     </section>
   </main>
@@ -165,9 +205,9 @@
 <div id="settings-overlay" class="modal-overlay" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <span class="mm-title">⚙️ 设置</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-settings"/></svg> 设置</span>
       <div class="spacer"></div>
-      <button id="set-close" class="icon-btn" title="关闭">✕</button>
+      <button id="set-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <label>AI 服务地址(OpenAI 兼容格式)</label>
@@ -187,7 +227,7 @@
       </div>
       <div id="tr-local-box" style="margin-top:8px">
         <div class="field-row">
-          <button id="btn-dl-local" class="btn ghost sm">⬇ 下载 / 更新模型</button>
+          <button id="btn-dl-local" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>下载 / 更新模型</button>
           <span id="local-model-status" class="muted" style="font-size:11.5px;align-self:center"></span>
         </div>
         <div style="margin-top:6px">
@@ -228,7 +268,7 @@
     <div class="modal-head">
       <span class="mm-title" id="new-title">留下这段声音</span>
       <div class="spacer"></div>
-      <button id="new-close" class="icon-btn" title="关闭">✕</button>
+      <button id="new-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="new-file" class="new-file"></div>
@@ -266,15 +306,15 @@
 <div id="mm-overlay" class="modal-overlay" hidden>
   <div class="modal-card" style="width:88vw;height:82vh;max-width:none;max-height:none">
     <div class="modal-head">
-      <span class="mm-title">🧠 思维导图</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-mindmap"/></svg> 思维导图</span>
       <span id="mm-status" class="muted" style="font-size:12px;margin-left:10px"></span>
       <div class="spacer"></div>
-      <button id="mm-zoom-out" class="icon-btn" title="缩小">−</button>
-      <button id="mm-zoom-in" class="icon-btn" title="放大">＋</button>
-      <button id="mm-fit" class="btn ghost sm">适应</button>
-      <button id="mm-regen" class="btn ghost sm">↻ 重新生成</button>
-      <button id="mm-export" class="btn ghost sm">⬇ PNG</button>
-      <button id="mm-close" class="icon-btn" title="关闭(Esc)">✕</button>
+      <button id="mm-zoom-out" class="icon-btn" title="缩小"><svg class="icon"><use href="#i-zoom-out"/></svg></button>
+      <button id="mm-zoom-in" class="icon-btn" title="放大"><svg class="icon"><use href="#i-zoom-in"/></svg></button>
+      <button id="mm-fit" class="btn ghost sm"><svg class="icon"><use href="#i-fit"/></svg>适应</button>
+      <button id="mm-regen" class="btn ghost sm"><svg class="icon"><use href="#i-regen"/></svg>重新生成</button>
+      <button id="mm-export" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>PNG</button>
+      <button id="mm-close" class="icon-btn" title="关闭(Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div id="mm-wrap" style="flex:1;min-height:0;background:#fafafa;overflow:hidden;border-radius:0 0 14px 14px">
       <svg id="mm-svg" style="width:100%;height:100%;display:block;cursor:grab"></svg>
@@ -286,12 +326,12 @@
 <div id="essay-overlay" class="modal-overlay" hidden>
   <div class="modal-card" style="width:min(860px,92vw);height:82vh;max-width:none;max-height:none">
     <div class="modal-head">
-      <span class="mm-title">✍️ 随笔</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-essay"/></svg> 随笔</span>
       <span id="essay-status" class="muted" style="font-size:12px;margin-left:10px"></span>
       <div class="spacer"></div>
-      <button id="essay-regen" class="btn ghost sm">↻ 重新生成</button>
-      <button id="essay-export-obsidian" class="btn ghost sm">📓 导出 Obsidian</button>
-      <button id="essay-close" class="icon-btn" title="关闭(Esc)">✕</button>
+      <button id="essay-regen" class="btn ghost sm"><svg class="icon"><use href="#i-regen"/></svg>重新生成</button>
+      <button id="essay-export-obsidian" class="btn ghost sm"><svg class="icon"><use href="#i-note"/></svg>导出 Obsidian</button>
+      <button id="essay-close" class="icon-btn" title="关闭(Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div id="essay-body" class="essay-body"></div>
   </div>
@@ -299,14 +339,14 @@
 
 <!-- 任务球 + 任务中心 -->
 <button id="job-fab" class="job-fab" hidden title="任务中心">
-  <span id="job-fab-icon">⏳</span><span id="job-fab-count"></span>
+  <span id="job-fab-icon"></span><span id="job-fab-count"></span>
 </button>
 <div id="jobs-overlay" class="modal-overlay" hidden>
   <div class="modal-card jobs-card">
     <div class="modal-head">
-      <span class="mm-title">📋 任务中心</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-queue"/></svg> 任务中心</span>
       <div class="spacer"></div>
-      <button id="jobs-close" class="icon-btn" title="关闭">✕</button>
+      <button id="jobs-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div id="jobs-list" class="jobs-list"></div>
   </div>
@@ -317,6 +357,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

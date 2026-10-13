@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>Manet 图标系统设计稿 V1.0</title>
+<style>
+body { margin:0; padding:40px 48px; background:#F7F5F0; color:#292824;
+  font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif; font-size:13px; }
+h1 { font-family:"Songti SC","Noto Serif CJK SC",serif; font-size:26px; letter-spacing:2px; margin:0 0 6px; }
+.sub { color:#858176; font-size:12px; letter-spacing:1px; margin:0 0 34px; }
+h2 { font-size:13px; color:#858176; letter-spacing:2px; font-weight:600; margin:38px 0 12px; border-bottom:1px solid #292824; padding-bottom:7px; }
+table { border-collapse:collapse; width:100%; background:#fff; border:1px solid #E4E0D7; }
+th { font-size:10.5px; color:#858176; letter-spacing:1px; font-weight:600; padding:8px 6px; border-bottom:1px solid #E4E0D7; background:#F0EEE7; }
+td { padding:9px 6px; border-bottom:1px solid #EFECE4; }
+td.nm { font-size:11.5px; color:#806B50; letter-spacing:.5px; width:120px; font-family:ui-monospace,Menlo,monospace; }
+td.c { text-align:center; width:64px; color:#292824; }
+td.hov { color:#806B50; }
+td.sel { color:#806B50; background:#EFEBE1; }
+td.dis { color:#292824; } td.dis svg { opacity:.45; }
+td.dark { background:#292824; color:#F7F5F0; }
+.ic { stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; vertical-align:middle; }
+.ic .f { fill:currentColor; stroke:none; }
+.s16 { width:16px; height:16px; } .s20 { width:20px; height:20px; } .s24 { width:24px; height:24px; }
+.mock { background:#fff; border:1px solid #E4E0D7; border-radius:3px; padding:14px 16px; margin:10px 0; display:flex; align-items:center; gap:10px; }
+.mock.side { background:#F0EEE7; width:230px; flex-direction:column; align-items:stretch; gap:4px; }
+.mock .nav { display:flex; gap:9px; align-items:center; padding:7px 10px; color:#858176; font-size:13px; }
+.mock .nav.on { color:#806B50; border-left:2px solid #806B50; font-weight:600; }
+.btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #E4E0D7; background:transparent;
+  color:#858176; font-size:12.5px; padding:6px 12px; border-radius:3px; }
+.btn.pri { background:#806B50; border-color:#806B50; color:#fff; }
+.bar { background:#F0EEE7; border:1px solid #E4E0D7; border-radius:3px; padding:10px 16px; display:flex; align-items:center; gap:12px; color:#292824; }
+.bar .t { font-size:11px; color:#ABA69A; font-variant-numeric:tabular-nums; }
+.job { display:flex; align-items:center; gap:10px; background:#F7F5F0; border:1px solid #E4E0D7; border-radius:3px; padding:9px 12px; }
+.job .tt { font-size:13px; font-weight:600; } .job .st { font-size:11.5px; color:#858176; }
+.spin { animation:sp .9s linear infinite; } @keyframes sp { to { transform:rotate(360deg); } }
+.note { color:#858176; font-size:11.5px; line-height:1.9; margin:8px 0; }
+</style></head><body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle class="f" cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><line x1="10" y1="13" x2="14" y2="13"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><line x1="4" y1="6" x2="11" y2="6"/><line x1="17" y1="6" x2="20" y2="6"/><circle cx="14" cy="6" r="2.4"/><line x1="4" y1="12" x2="5" y2="12"/><line x1="11" y1="12" x2="20" y2="12"/><circle cx="8" cy="12" r="2.4"/><line x1="4" y1="18" x2="13" y2="18"/><line x1="19" y1="18" x2="20" y2="18"/><circle cx="16" cy="18" r="2.4"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-folder-new" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><line x1="12" y1="11" x2="12" y2="15.5"/><line x1="9.8" y1="13.2" x2="14.2" y2="13.2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle class="f" cx="5" cy="12" r="1.6"/><circle class="f" cx="12" cy="12" r="1.6"/><circle class="f" cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><polyline points="11 5 4 12 11 19"/><line x1="4" y1="12" x2="20" y2="12"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20l1.2-4.2L16.6 4.4a2 2 0 0 1 2.8 2.8L8 18.8z"/><line x1="14.6" y1="6.4" x2="17.4" y2="9.2"/></symbol>
+  <symbol id="i-translate" viewBox="0 0 24 24"><line x1="4" y1="5" x2="13" y2="5"/><line x1="4" y1="9" x2="10" y2="9"/><line x1="17" y1="4" x2="17" y2="12"/><polyline points="14 9.5 17 12.5 20 9.5"/><line x1="7" y1="15" x2="20" y2="15"/><line x1="11" y1="19" x2="20" y2="19"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/><path d="M12 4c2.5 2.4 4 5.1 4 8s-1.5 5.6-4 8c-2.5-2.4-4-5.1-4-8s1.5-5.6 4-8z"/></symbol>
+  <symbol id="i-export" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="13" x2="12" y2="3"/><polyline points="8 7 12 3 16 7"/></symbol>
+  <symbol id="i-mindmap" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="17.5" cy="6" r="2.2"/><circle cx="17.5" cy="18" r="2.2"/><line x1="8.2" y1="10.9" x2="15.5" y2="7"/><line x1="8.2" y1="13.1" x2="15.5" y2="17"/></symbol>
+  <symbol id="i-essay" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><line x1="9.5" y1="7" x2="14.5" y2="7"/><line x1="8.5" y1="11" x2="15.5" y2="11"/><line x1="8.5" y1="14" x2="15.5" y2="14"/><line x1="8.5" y1="17" x2="13" y2="17"/></symbol>
+  <symbol id="i-interpret" viewBox="0 0 24 24"><line x1="5" y1="4" x2="5" y2="20"/><line x1="5" y1="8" x2="7.5" y2="8"/><line x1="5" y1="15" x2="7.5" y2="15"/><line x1="11" y1="7" x2="20" y2="7"/><line x1="11" y1="12" x2="20" y2="12"/><line x1="11" y1="17" x2="17" y2="17"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 4v-4H6a2 2 0 0 1-2-2z"/><path d="M10.6 8.6a1.7 1.7 0 1 1 2.4 1.9c-.6.3-1 .7-1 1.4"/><circle class="f" cx="12" cy="13.6" r="0.9"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><line x1="8.5" y1="12" x2="15.5" y2="12"/><line x1="8.5" y1="16" x2="13" y2="16"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 5.5v13l10.5-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><line x1="9" y1="5.5" x2="9" y2="18.5"/><line x1="15" y1="5.5" x2="15" y2="18.5"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 10v4h3l4 3.5v-11L7 10z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.5 7.5a7 7 0 0 1 0 9"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 10v4h3l4 3.5v-11L7 10z"/><line x1="16" y1="10" x2="20" y2="14"/><line x1="20" y1="10" x2="16" y2="14"/></symbol>
+  <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4.5 16.5a8.5 8.5 0 1 1 15 0"/><line x1="12" y1="16.5" x2="15.8" y2="11.6"/><circle class="f" cx="12" cy="16.5" r="1.4"/></symbol>
+  <symbol id="i-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><polyline points="8.5 12.2 11 14.7 15.5 9.8"/></symbol>
+  <symbol id="i-running" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-8-8"/></symbol>
+  <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="9.5" y1="9.5" x2="14.5" y2="14.5"/><line x1="14.5" y1="9.5" x2="9.5" y2="14.5"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle class="f" cx="12" cy="12" r="1.6"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><line x1="6" y1="10" x2="6" y2="14"/><line x1="10" y1="7" x2="10" y2="17"/><line x1="14" y1="4.5" x2="14" y2="19.5"/><line x1="18" y1="8.5" x2="18" y2="15.5"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="17" y1="5" x2="17" y2="19"/><line x1="3" y1="9.5" x2="7" y2="9.5"/><line x1="3" y1="14.5" x2="7" y2="14.5"/><line x1="17" y1="9.5" x2="21" y2="9.5"/><line x1="17" y1="14.5" x2="21" y2="14.5"/></symbol>
+  <symbol id="i-punct" viewBox="0 0 24 24"><circle class="f" cx="8" cy="17" r="1.7"/><path d="M16 5c2 2.4 3 4.6 3 6.8 0 2.6-1.4 4.2-3.2 5.2"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></symbol>
+  <symbol id="i-regen" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><polyline points="20 4 20 8.5 15.5 8.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="14"/><polyline points="8 10 12 14 16 10"/><line x1="5" y1="19" x2="19" y2="19"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M15 4h4a1 1 0 0 1 1 1v4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/><path d="M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+  <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/><line x1="11" y1="8.5" x2="11" y2="13.5"/><line x1="8.5" y1="11" x2="13.5" y2="11"/></symbol>
+  <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><line x1="15.8" y1="15.8" x2="20" y2="20"/><line x1="8.5" y1="11" x2="13.5" y2="11"/></symbol>
+</svg>
+
+<h1>Manet 图标系统 · 设计稿</h1>
+<p class="sub">V1.0 — 24 网格 · 线宽 1.5 · round cap/join · currentColor 取色 · 共 36 枚</p>
+
+<h2>一、图标清单 × 尺寸 × 状态 × 背景</h2>
+<table>
+<tr><th style="text-align:left;padding-left:12px;">名称</th><th>16</th><th>20</th><th>24</th><th>默认</th><th>悬停</th><th>选中</th><th>禁用</th><th>深色底</th></tr>
+<tr>
+<td class="nm">i-mark</td>
+<td class="c"><svg class="ic s16"><use href="#i-mark"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-mark"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-mark"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-mark"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-mark"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-mark"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-mark"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-mark"/></svg></td>
+</tr><tr>
+<td class="nm">i-archive</td>
+<td class="c"><svg class="ic s16"><use href="#i-archive"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-archive"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-archive"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-archive"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-archive"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-archive"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-archive"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-archive"/></svg></td>
+</tr><tr>
+<td class="nm">i-settings</td>
+<td class="c"><svg class="ic s16"><use href="#i-settings"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-settings"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-settings"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-settings"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-settings"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-settings"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-settings"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-settings"/></svg></td>
+</tr><tr>
+<td class="nm">i-import</td>
+<td class="c"><svg class="ic s16"><use href="#i-import"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-import"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-import"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-import"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-import"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-import"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-import"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-import"/></svg></td>
+</tr><tr>
+<td class="nm">i-folder</td>
+<td class="c"><svg class="ic s16"><use href="#i-folder"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-folder"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-folder"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-folder"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-folder"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-folder"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-folder"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-folder"/></svg></td>
+</tr><tr>
+<td class="nm">i-folder-new</td>
+<td class="c"><svg class="ic s16"><use href="#i-folder-new"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-folder-new"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-folder-new"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-folder-new"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-folder-new"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-folder-new"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-folder-new"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-folder-new"/></svg></td>
+</tr><tr>
+<td class="nm">i-search</td>
+<td class="c"><svg class="ic s16"><use href="#i-search"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-search"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-search"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-search"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-search"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-search"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-search"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-search"/></svg></td>
+</tr><tr>
+<td class="nm">i-more</td>
+<td class="c"><svg class="ic s16"><use href="#i-more"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-more"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-more"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-more"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-more"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-more"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-more"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-more"/></svg></td>
+</tr><tr>
+<td class="nm">i-back</td>
+<td class="c"><svg class="ic s16"><use href="#i-back"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-back"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-back"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-back"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-back"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-back"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-back"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-back"/></svg></td>
+</tr><tr>
+<td class="nm">i-edit</td>
+<td class="c"><svg class="ic s16"><use href="#i-edit"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-edit"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-edit"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-edit"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-edit"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-edit"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-edit"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-edit"/></svg></td>
+</tr><tr>
+<td class="nm">i-translate</td>
+<td class="c"><svg class="ic s16"><use href="#i-translate"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-translate"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-translate"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-translate"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-translate"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-translate"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-translate"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-translate"/></svg></td>
+</tr><tr>
+<td class="nm">i-globe</td>
+<td class="c"><svg class="ic s16"><use href="#i-globe"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-globe"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-globe"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-globe"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-globe"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-globe"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-globe"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-globe"/></svg></td>
+</tr><tr>
+<td class="nm">i-export</td>
+<td class="c"><svg class="ic s16"><use href="#i-export"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-export"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-export"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-export"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-export"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-export"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-export"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-export"/></svg></td>
+</tr><tr>
+<td class="nm">i-mindmap</td>
+<td class="c"><svg class="ic s16"><use href="#i-mindmap"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-mindmap"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-mindmap"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-mindmap"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-mindmap"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-mindmap"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-mindmap"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-mindmap"/></svg></td>
+</tr><tr>
+<td class="nm">i-essay</td>
+<td class="c"><svg class="ic s16"><use href="#i-essay"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-essay"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-essay"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-essay"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-essay"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-essay"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-essay"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-essay"/></svg></td>
+</tr><tr>
+<td class="nm">i-interpret</td>
+<td class="c"><svg class="ic s16"><use href="#i-interpret"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-interpret"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-interpret"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-interpret"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-interpret"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-interpret"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-interpret"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-interpret"/></svg></td>
+</tr><tr>
+<td class="nm">i-chat</td>
+<td class="c"><svg class="ic s16"><use href="#i-chat"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-chat"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-chat"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-chat"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-chat"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-chat"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-chat"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-chat"/></svg></td>
+</tr><tr>
+<td class="nm">i-note</td>
+<td class="c"><svg class="ic s16"><use href="#i-note"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-note"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-note"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-note"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-note"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-note"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-note"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-note"/></svg></td>
+</tr><tr>
+<td class="nm">i-play</td>
+<td class="c"><svg class="ic s16"><use href="#i-play"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-play"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-play"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-play"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-play"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-play"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-play"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-play"/></svg></td>
+</tr><tr>
+<td class="nm">i-pause</td>
+<td class="c"><svg class="ic s16"><use href="#i-pause"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-pause"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-pause"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-pause"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-pause"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-pause"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-pause"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-pause"/></svg></td>
+</tr><tr>
+<td class="nm">i-volume</td>
+<td class="c"><svg class="ic s16"><use href="#i-volume"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-volume"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-volume"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-volume"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-volume"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-volume"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-volume"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-volume"/></svg></td>
+</tr><tr>
+<td class="nm">i-mute</td>
+<td class="c"><svg class="ic s16"><use href="#i-mute"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-mute"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-mute"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-mute"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-mute"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-mute"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-mute"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-mute"/></svg></td>
+</tr><tr>
+<td class="nm">i-speed</td>
+<td class="c"><svg class="ic s16"><use href="#i-speed"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-speed"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-speed"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-speed"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-speed"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-speed"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-speed"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-speed"/></svg></td>
+</tr><tr>
+<td class="nm">i-done</td>
+<td class="c"><svg class="ic s16"><use href="#i-done"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-done"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-done"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-done"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-done"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-done"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-done"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-done"/></svg></td>
+</tr><tr>
+<td class="nm">i-running</td>
+<td class="c"><svg class="ic s16"><use href="#i-running"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-running"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-running"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-running"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-running"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-running"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-running"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-running"/></svg></td>
+</tr><tr>
+<td class="nm">i-error</td>
+<td class="c"><svg class="ic s16"><use href="#i-error"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-error"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-error"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-error"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-error"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-error"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-error"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-error"/></svg></td>
+</tr><tr>
+<td class="nm">i-queue</td>
+<td class="c"><svg class="ic s16"><use href="#i-queue"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-queue"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-queue"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-queue"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-queue"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-queue"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-queue"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-queue"/></svg></td>
+</tr><tr>
+<td class="nm">i-wave</td>
+<td class="c"><svg class="ic s16"><use href="#i-wave"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-wave"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-wave"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-wave"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-wave"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-wave"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-wave"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-wave"/></svg></td>
+</tr><tr>
+<td class="nm">i-film</td>
+<td class="c"><svg class="ic s16"><use href="#i-film"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-film"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-film"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-film"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-film"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-film"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-film"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-film"/></svg></td>
+</tr><tr>
+<td class="nm">i-punct</td>
+<td class="c"><svg class="ic s16"><use href="#i-punct"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-punct"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-punct"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-punct"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-punct"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-punct"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-punct"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-punct"/></svg></td>
+</tr><tr>
+<td class="nm">i-close</td>
+<td class="c"><svg class="ic s16"><use href="#i-close"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-close"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-close"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-close"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-close"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-close"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-close"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-close"/></svg></td>
+</tr><tr>
+<td class="nm">i-regen</td>
+<td class="c"><svg class="ic s16"><use href="#i-regen"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-regen"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-regen"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-regen"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-regen"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-regen"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-regen"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-regen"/></svg></td>
+</tr><tr>
+<td class="nm">i-download</td>
+<td class="c"><svg class="ic s16"><use href="#i-download"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-download"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-download"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-download"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-download"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-download"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-download"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-download"/></svg></td>
+</tr><tr>
+<td class="nm">i-fit</td>
+<td class="c"><svg class="ic s16"><use href="#i-fit"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-fit"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-fit"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-fit"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-fit"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-fit"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-fit"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-fit"/></svg></td>
+</tr><tr>
+<td class="nm">i-zoom-in</td>
+<td class="c"><svg class="ic s16"><use href="#i-zoom-in"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-zoom-in"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-zoom-in"/></svg></td>
+</tr><tr>
+<td class="nm">i-zoom-out</td>
+<td class="c"><svg class="ic s16"><use href="#i-zoom-out"/></svg></td><td class="c"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td><td class="c"><svg class="ic s24"><use href="#i-zoom-out"/></svg></td>
+<td class="c"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td>
+<td class="c hov"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td>
+<td class="c sel"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td>
+<td class="c dis"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td>
+<td class="c dark"><svg class="ic s20"><use href="#i-zoom-out"/></svg></td>
+</tr>
+</table>
+<p class="note">悬停=复古棕 #806B50;选中=棕字+浅棕底 #EFEBE1;禁用=45% 不透明;深色底=暖白 #F7F5F0(.on-dark)。</p>
+
+<h2>二、界面应用示例</h2>
+<div class="mock side">
+  <div style="display:flex;align-items:center;gap:9px;padding:2px 6px 12px;font-family:'Songti SC',serif;font-size:18px;font-weight:700;letter-spacing:2px;"><svg class="ic s20"><use href="#i-mark"/></svg>Manet</div>
+  <div class="nav on"><svg class="ic s16"><use href="#i-archive"/></svg>档案库</div>
+  <div class="nav"><svg class="ic s16"><use href="#i-settings"/></svg>设置</div>
+</div>
+<div class="mock">
+  <span class="btn pri"><svg class="ic s14"><use href="#i-interpret"/></svg>Scriba 解读</span>
+  <span class="btn"><svg class="ic s14"><use href="#i-mindmap"/></svg>脑图</span>
+  <span class="btn"><svg class="ic s14"><use href="#i-essay"/></svg>随笔</span>
+  <span class="btn"><svg class="ic s14"><use href="#i-export"/></svg>导出</span>
+  <span class="btn"><svg class="ic s14"><use href="#i-translate"/></svg>翻译</span>
+  <span class="btn"><svg class="ic s14"><use href="#i-edit"/></svg>编辑</span>
+  <span class="btn" style="padding:6px 8px;"><svg class="ic s14"><use href="#i-more"/></svg></span>
+</div>
+<div class="bar">
+  <svg class="ic s18"><use href="#i-play"/></svg> <span class="t">03:12</span>
+  <span style="flex:1;height:2px;background:#E4E0D7;border-radius:1px;"></span>
+  <span class="t">48:07</span> <svg class="ic s14"><use href="#i-speed"/></svg> <svg class="ic s18"><use href="#i-volume"/></svg>
+</div>
+<div class="mock" style="gap:12px;">
+  <div class="job" style="flex:1;"><svg class="ic s18 spin"><use href="#i-running"/></svg><div><div class="tt">OPPO ODC26 · 转写</div><div class="st">正在转写(Whisper)</div></div></div>
+  <div class="job" style="flex:1;color:#6E8B5E;"><svg class="ic s18"><use href="#i-done"/></svg><div><div class="tt" style="color:#292824;">访谈 04 · 字幕封装</div><div class="st">已完成,待保存</div></div></div>
+  <div class="job" style="flex:1;color:#A6503C;"><svg class="ic s18"><use href="#i-error"/></svg><div><div class="tt" style="color:#292824;">发布会 · 翻译</div><div class="st" style="color:#A6503C;">LLM 连接失败</div></div></div>
+</div>
+<p class="note">应用原则:图标永远跟随上下文文字色;按钮内 14px、导航/工具栏 16px、播放器与任务行 18px、品牌标记 20px。</p>
+</body></html>
