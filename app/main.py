@@ -650,7 +650,6 @@ class SettingsReq(BaseModel):
     obsidian_path: str | None = None
     obsidian_sections: str | None = None
     essay_prompt: str | None = None
-    clear_llm_api_key: bool | None = None
 
 
 @app.get("/api/settings/local-model")
@@ -668,8 +667,9 @@ def api_local_model_download():
 
 
 @app.get("/api/settings")
-def api_get_settings():
-    return settings_mod.get()
+def api_get_settings(reveal: bool = False):
+    """reveal=true 时回明文 Key(仅本机回环,供设置页密码框回显为黑点)。"""
+    return settings_mod.get(mask_key=not reveal)
 
 
 @app.put("/api/settings")

@@ -677,11 +677,11 @@ async function openSettings() {
   setOverlay.hidden = false; $("#set-result").textContent = ""; $("#set-result").className = "set-result";
   $("#set-key").value = "";
   try {
-    const s = await api("/api/settings");
+    const s = await api("/api/settings?reveal=true");   // 本机回环,Key 回显为密码框黑点
     $("#set-base").value = s.llm_base_url || "";
     $("#set-model").value = s.llm_model || "";
     $("#set-polish").checked = !!s.polish_enabled;
-    $("#set-key-hint").textContent = s.has_key ? `(已配置:${s.llm_api_key_masked})` : "(未配置)";
+    $("#set-key").value = s.llm_api_key || "";
     $("#set-asr").value = s.asr_engine || "whisper";
     $("#set-local-repo").value = s.local_model_repo || "";
     $("#set-obsidian-path").value = s.obsidian_path || "";
@@ -744,17 +744,6 @@ $("#set-save").addEventListener("click", async () => {
       }) });
     toast("设置已保存并立即生效"); setOverlay.hidden = true;
   } catch (e) { toast("保存失败:" + e.message); }
-});
-$("#set-key-clear").addEventListener("click", async () => {
-  if (!confirm("清除本机保存的 API Key?清除后 AI 功能将不可用,直到配置新 Key。")) return;
-  try {
-    await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clear_llm_api_key: true }) });
-    $("#set-key").value = "";
-    const s = await api("/api/settings");
-    $("#set-key-hint").textContent = s.has_key ? `(已配置:${s.llm_api_key_masked})` : "(未配置)";
-    toast("已清除保存的 API Key");
-  } catch (e) { toast("清除失败:" + e.message); }
 });
 
 /* ================= 思维导图 ================= */

@@ -89,12 +89,10 @@ def update(patch: dict) -> dict:
             _data["polish_enabled"] = bool(patch["polish_enabled"])
         if "essay_prompt" in patch:
             _data["essay_prompt"] = (patch["essay_prompt"] or "").strip()
-        for kk in ("llm_api_key",):
-            v = patch.get(kk)
-            if v and v.strip():
-                _data[kk] = v.strip()
-        if patch.get("clear_llm_api_key"):      # 显式清除已保存的 Key(留空=保留)
-            _data["llm_api_key"] = ""
+        # Key 语义与常规设置页一致:传了就以输入框为准,空串=清除
+        v = patch.get("llm_api_key")
+        if v is not None:
+            _data["llm_api_key"] = v.strip()
         SETTINGS_FILE.write_text(
             json.dumps(_data, ensure_ascii=False, indent=1), encoding="utf-8")
         _apply()
