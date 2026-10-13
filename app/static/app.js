@@ -761,6 +761,21 @@ async function testSettings(fetchModels) {
   } catch (e) { setSetResult(false, "测试失败:" + e.message); }
 }
 $("#set-test").addEventListener("click", () => testSettings(false));
+
+/* ================= 主题:昼 / 夜 / 跟随系统 ================= */
+function applyTheme() {
+  const pref = localStorage.getItem("tw_theme") || "light";
+  const night = pref === "night" || (pref === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = night ? "night" : "light";
+  $$("#theme-ctrl button").forEach(b => b.classList.toggle("active", b.dataset.mode === pref));
+  if (!$("#mm-overlay").hidden && mmTree) renderMindmap();   // 脑图随主题换配色
+}
+$$("#theme-ctrl button").forEach(b => b.addEventListener("click", () => {
+  localStorage.setItem("tw_theme", b.dataset.mode); applyTheme();
+}));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if ((localStorage.getItem("tw_theme") || "light") === "auto") applyTheme();
+});
 $("#set-fetch").addEventListener("click", () => testSettings(true));
 $("#set-save").addEventListener("click", async () => {
   const sections = ["transcript", "ai", "chat", "notes"].filter(k => $("#sec-" + k).checked).join(",");
@@ -806,17 +821,20 @@ function mmLayout(root) {
   };
   place(root, 0, 0, "0"); return { nodes, edges };
 }
-/* 脑图配色纳入 Manet 色板:根=复古棕底暖白字,一级=浅棕底棕边,二级=白底细边 */
-const MM_FILLS = ["#806B50", "#EFEBE1", "#FFFFFF"], MM_STROKES = ["#806B50", "#C9BFAE", "#E4E0D7"], MM_TEXTS = ["#F7F5F0", "#292824", "#55524A"];
+/* 脑图双主题配色:昼=纸面棕系,夜=暖暗底提亮棕 */
+const MM_LIGHT = { fills: ["#806B50", "#EFEBE1", "#FFFFFF"], strokes: ["#806B50", "#C9BFAE", "#E4E0D7"], texts: ["#F7F5F0", "#292824", "#55524A"], edge: "#CFC7B4", chip: "#806B50", badge: "#858176", paper: "#FBFAF6" };
+const MM_NIGHT = { fills: ["#806B50", "#3A3428", "#2A2823"], strokes: ["#806B50", "#55503F", "#3A372F"], texts: ["#F7F5F0", "#E8E2D5", "#C9C1B0"], edge: "#4A463C", chip: "#C8A878", badge: "#7A7365", paper: "#262420" };
+const mmPal = () => (document.documentElement.dataset.theme === "night" ? MM_NIGHT : MM_LIGHT);
 function renderMindmap() {
   if (!mmTree) return;
+  const P = mmPal();
   const { nodes, edges } = mmLayout(mmTree), byId = {}; nodes.forEach(n => byId[n.id] = n);
   let g = "";
-  for (const [a, b] of edges) { const p = byId[a], c = byId[b], x1 = p.x + p.w, x2 = c.x, mx = (x1 + x2) / 2; g += `<path d="M ${x1} ${p.y} C ${mx} ${p.y}, ${mx} ${c.y}, ${x2} ${c.y}" fill="none" stroke="#CFC7B4" stroke-width="1.5"/>`; }
+  for (const [a, b] of edges) { const p = byId[a], c = byId[b], x1 = p.x + p.w, x2 = c.x, mx = (x1 + x2) / 2; g += `<path d="M ${x1} ${p.y} C ${mx} ${p.y}, ${mx} ${c.y}, ${x2} ${c.y}" fill="none" stroke="${P.edge}" stroke-width="1.5"/>`; }
   for (const n of nodes) {
-    const chip = n.seconds != null ? `<text class="mm-time" data-sec="${n.seconds}" x="${n.x + n.w - 10}" y="${n.y + 4}" text-anchor="end" font-size="11" fill="#806B50" font-weight="600">${escapeHtml(n.time || fmtTs(n.seconds, true))}</text>` : "";
-    const badge = (n.collapsed && n.nKids) ? `<text x="${n.x + n.w + 8}" y="${n.y + 4}" font-size="11" fill="#858176">+${n.nKids}</text>` : "";
-    g += `<g class="mm-node" data-id="${n.id}" data-kids="${n.nKids}"><rect x="${n.x}" y="${n.y - MM_NODE_H / 2}" width="${n.w}" height="${MM_NODE_H}" rx="3" fill="${MM_FILLS[n.depth]}" stroke="${MM_STROKES[n.depth]}"/><text x="${n.x + 12}" y="${n.y + 5}" font-size="${n.depth === 0 ? 15 : 14}" font-weight="${n.depth === 0 ? 600 : 400}" fill="${MM_TEXTS[n.depth]}">${escapeHtml(n.text)}</text>${chip}${badge}<title>${escapeHtml(n.title)}</title></g>`;
+    const chip = n.seconds != null ? `<text class="mm-time" data-sec="${n.seconds}" x="${n.x + n.w - 10}" y="${n.y + 4}" text-anchor="end" font-size="11" fill="${P.chip}" font-weight="600">${escapeHtml(n.time || fmtTs(n.seconds, true))}</text>` : "";
+    const badge = (n.collapsed && n.nKids) ? `<text x="${n.x + n.w + 8}" y="${n.y + 4}" font-size="11" fill="${P.badge}">+${n.nKids}</text>` : "";
+    g += `<g class="mm-node" data-id="${n.id}" data-kids="${n.nKids}"><rect x="${n.x}" y="${n.y - MM_NODE_H / 2}" width="${n.w}" height="${MM_NODE_H}" rx="3" fill="${P.fills[n.depth]}" stroke="${P.strokes[n.depth]}"/><text x="${n.x + 12}" y="${n.y + 5}" font-size="${n.depth === 0 ? 15 : 14}" font-weight="${n.depth === 0 ? 600 : 400}" fill="${P.texts[n.depth]}">${escapeHtml(n.text)}</text>${chip}${badge}<title>${escapeHtml(n.title)}</title></g>`;
   }
   $("#mm-svg").innerHTML = `<g id="mm-root">${g}</g>`; mmApplyView();
 }
@@ -894,7 +912,7 @@ $("#mm-export").addEventListener("click", () => {
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg"); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const xml = new XMLSerializer().serializeToString(svg), url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
   const img = new Image();
-  img.onload = () => { const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2; const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = "#FBFAF6"; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); const a = document.createElement("a"); a.download = `${(state.task && state.task.display_title) || "思维导图"}.png`; a.href = c.toDataURL("image/png"); a.click(); toast("已导出 PNG"); };
+  img.onload = () => { const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2; const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = mmPal().paper; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); const a = document.createElement("a"); a.download = `${(state.task && state.task.display_title) || "思维导图"}.png`; a.href = c.toDataURL("image/png"); a.click(); toast("已导出 PNG"); };
   img.src = url;
 });
 
@@ -1019,4 +1037,4 @@ function saveChatLog() {
 }
 
 /* ================= 启动 ================= */
-fetchTasks(); fetchFolders();
+applyTheme(); fetchTasks(); fetchFolders();
