@@ -2,6 +2,7 @@
 "use strict";
 window.onerror = (msg, src, line, col) => {
   const el = document.getElementById("toast");
+  el.className = "toast err";
   el.textContent = `JS错误: ${msg} (第${line}行)`;
   el.hidden = false; setTimeout(() => (el.hidden = true), 12000);
 };
@@ -26,8 +27,15 @@ const AUDIO_EXT = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "opus", "wma", "am
 const LANG_NAMES = { zh: "中文", en: "英文", ja: "日文", ko: "韩文", yue: "粤语" };
 
 /* ================= 工具 ================= */
-function toast(msg, ms = 2600) {
-  const el = $("#toast"); el.textContent = msg; el.hidden = false;
+function toast(msg, ms = 2600, type) {
+  const el = $("#toast");
+  // 语义:显式指定优先;否则按文案轻量判定(失败类/完成类/中性)
+  const t = type || (/失败|错误|不可|拒绝|不存在/.test(msg) ? "err"
+    : /已完成|已保存|已更新|已导出|已开始|已清除|已暂停|已继续|成功|已入库/.test(msg) ? "ok" : "info");
+  el.className = "toast " + t;
+  el.innerHTML = icon(t === "err" ? "i-error" : t === "ok" ? "i-done" : "i-mark")
+    + `<span>${escapeHtml(msg)}</span>`;
+  el.hidden = false;
   clearTimeout(el._t); el._t = setTimeout(() => (el.hidden = true), ms);
 }
 function fmtTs(sec, fh = false) {

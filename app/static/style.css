@@ -508,13 +508,24 @@ body {
 .seg-ctrl button + button { border-left: 1px solid var(--border); }
 .seg-ctrl button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-/* ---------- Toast ---------- */
+/* ---------- Toast:纸片式提示,左侧细色条表语义 ---------- */
 .toast {
-  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-  background: var(--text); color: #F7F5F0; font-size: 13px;
-  padding: 9px 18px; border-radius: var(--radius); z-index: 100;
-  box-shadow: 0 4px 14px rgba(41,40,36,.22); max-width: 70vw; letter-spacing: .3px;
+  position: fixed; bottom: 84px; left: 50%; z-index: 100;
+  display: flex; align-items: center; gap: 9px;
+  background: #FFFDF8; color: var(--text);
+  border: 1px solid var(--border); border-left: 2px solid var(--accent);
+  border-radius: var(--radius); padding: 10px 18px;
+  font-size: 13px; letter-spacing: .3px; max-width: 70vw;
+  box-shadow: 0 3px 14px rgba(41,40,36,.08);
 }
+.toast:not([hidden]) { animation: toast-in .18s ease-out; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.toast .icon { color: var(--accent); }
+.toast.ok  { border-left-color: var(--ok); }  .toast.ok  .icon { color: var(--ok); }
+.toast.err { border-left-color: var(--danger); } .toast.err .icon { color: var(--danger); }
 
 @media (max-width: 960px) {
   .detail-body { grid-template-columns: 1fr; overflow-y: auto; }
