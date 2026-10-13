@@ -1,1 +1,1 @@
-"""TingWu Local — 本地开源语音转写与会议纪要。"""
+"""Manet — 本地声音转写与解读。Quod manet, manet. 思想仍在。"""

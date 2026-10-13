@@ -22,5 +22,5 @@ for _ in $(seq 1 60); do          # 最多等 30 秒
   fi
 done
 
-osascript -e 'display alert "听悟 Lite 启动失败" message "请查看 data/server.log 了解原因(常见:工作盘未挂载)" as critical' 2>/dev/null
+osascript -e 'display alert "Manet 启动失败" message "请查看 data/server.log 了解原因(常见:工作盘未挂载)" as critical' 2>/dev/null
 exit 1

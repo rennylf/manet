@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>听悟 Lite · 本地音视频转写与笔记</title>
-<link rel="stylesheet" href="style.css?v=5">
+<title>Manet · 思想仍在 — 本地声音转写与解读</title>
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <div id="app">
 
   <!-- ================= 侧边栏 ================= -->
   <aside id="sidebar">
-    <div class="logo">🎙️ 听悟<span>Lite</span></div>
-    <button id="btn-side-upload" class="btn primary side-btn">＋ 上传音视频</button>
-    <button class="btn side-btn soon" disabled title="路线图功能">🎧 实时录音 · 即将上线</button>
-    <div id="nav-home" class="nav-item active">📚 内容库</div>
+    <div class="logo">Manet<span>· 思想仍在</span></div>
+    <button id="btn-side-upload" class="btn primary side-btn">＋ 导入音视频</button>
+    <button class="btn side-btn soon" disabled title="路线图功能">实时录音 · 未至</button>
+    <div id="nav-home" class="nav-item active">📚 档案库</div>
     <div id="nav-settings" class="nav-item">⚙️ 设置</div>
     <div class="side-search">
-      <input id="search-input" type="search" placeholder="搜索录音…">
+      <input id="search-input" type="search" placeholder="搜索档案…">
     </div>
     <div id="side-list" class="side-list"></div>
-    <div class="side-foot">本地引擎 · 数据不出机器</div>
+    <div class="side-foot">Quod manet, manet.</div>
   </aside>
 
   <!-- ================= 内容区 ================= -->
@@ -31,17 +31,17 @@
       <div class="home-scroll">
         <div id="dropzone" class="home-hero">
           <div class="dz-icon">📁</div>
-          <h2>拖入音视频文件,或 <span class="link">点击选择</span></h2>
-          <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv 等,最大 2GB<br>
-          转写、标点、笔记全部在本机完成</p>
+          <h2>把声音放进来,或 <span class="link">点击选择</span></h2>
+          <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv,最大 2GB ·
+          转写与解读,只在你自己的机器上发生</p>
         </div>
         <div class="home-options">
           <div class="muted" style="font-size:12px">
-            选择文件后设置转写参数,确认即开始;你的选择会被记住。
+            不记录一切,只留下重要的。选择转写的方式,你的选择会被记住。
           </div>
         </div>
         <div class="home-list-head">
-          <h3>全部录音</h3>
+          <h3>留存目录</h3>
           <span id="home-count" class="count"></span>
           <div class="spacer"></div>
           <button id="btn-new-folder" class="btn ghost sm">📁 新建文件夹</button>
@@ -64,7 +64,7 @@
         <div class="topbar-actions">
           <button id="btn-mindmap" class="btn ghost sm" title="AI 思维导图">🧠 脑图</button>
           <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔">✍️ 随笔</button>
-          <button id="btn-analyze" class="btn primary sm">✨ AI 笔记</button>
+          <button id="btn-analyze" class="btn primary sm" title="Scriba 通读留存:摘要 / 章节 / 待办 / 关键词">✨ Scriba 解读</button>
           <div class="dropdown">
             <button id="btn-export" class="btn ghost sm">⬇️ 导出</button>
             <div id="export-menu" class="dropdown-menu" hidden>
@@ -82,7 +82,7 @@
           <div class="dropdown">
             <button id="btn-more" class="btn ghost sm">⋯</button>
             <div id="more-menu" class="dropdown-menu" hidden>
-              <a id="menu-polish">✨ AI 标点恢复</a>
+              <a id="menu-polish">✨ 标点恢复</a>
               <a id="menu-retranscribe">🔁 重新转写…</a>
             </div>
           </div>
@@ -104,7 +104,7 @@
             </div>
             <button id="btn-translate" class="btn ghost sm">🌐 翻译</button>
             <div class="spacer"></div>
-            <input id="transcript-search" class="tsearch" type="search" placeholder="搜索转写稿…">
+            <input id="transcript-search" class="tsearch" type="search" placeholder="搜索正文…">
             <button id="btn-edit" class="btn ghost sm">✏️ 编辑</button>
             <button id="btn-save-edit" class="btn primary sm" hidden>保存修改</button>
           </div>
@@ -115,19 +115,19 @@
 
         <div class="detail-right">
           <div class="tabs">
-            <button class="tab active" data-tab="ai">智能笔记</button>
+            <button class="tab active" data-tab="ai">解读</button>
             <button class="tab" data-tab="chat">问答</button>
-            <button class="tab" data-tab="notes">我的笔记</button>
+            <button class="tab" data-tab="notes">札记</button>
           </div>
           <div id="tab-ai" class="tab-pane">
             <div id="ai-status" class="ai-status" hidden></div>
             <div id="ai-content" class="ai-content">
-              <div class="empty-hint">点击右上角「✨ AI 笔记」,<br>生成摘要、章节速览、待办与关键词。</div>
+              <div class="empty-hint">点击右上角「✨ Scriba 解读」——<br>摘要、章节速览、待办与关键词。</div>
             </div>
           </div>
           <div id="tab-chat" class="tab-pane" hidden>
             <div id="chat-messages" class="chat-messages">
-              <div class="empty-hint">就这段录音提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」</div>
+              <div class="empty-hint">向这段留存提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」<br>Scriba 不插话、不评判,只引用内容回答。</div>
             </div>
             <div class="chat-input-row">
               <textarea id="chat-input" rows="1" placeholder="输入问题,Enter 发送…"></textarea>
@@ -135,7 +135,7 @@
             </div>
           </div>
           <div id="tab-notes" class="tab-pane" hidden>
-            <textarea id="my-notes" class="my-notes" placeholder="随手记录想法、要点,自动保存…"></textarea>
+            <textarea id="my-notes" class="my-notes" placeholder="此刻的理解,值得留下。自动保存…"></textarea>
             <div id="notes-status" class="notes-status"></div>
           </div>
         </div>
@@ -212,7 +212,7 @@
       <textarea id="set-essay-prompt" rows="6" placeholder="留空使用默认。占位符 {transcript} 会被替换为转写稿全文。"></textarea>
       <p class="muted tiny" style="margin-top:4px">自定义随笔的写作要求;留空则使用内置默认提示词。</p>
       <div id="set-result" class="set-result"></div>
-      <p class="muted tiny">所有设置仅保存在本机,修改后立即生效。</p>
+      <p class="muted tiny">所有设置只留在本机,修改后立即生效。</p>
     </div>
     <div class="modal-foot">
       <button id="set-test" class="btn ghost">测试连接</button>
@@ -226,7 +226,7 @@
 <div id="new-overlay" class="modal-overlay" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <span class="mm-title" id="new-title">🎙 新建转写</span>
+      <span class="mm-title" id="new-title">留下这段声音</span>
       <div class="spacer"></div>
       <button id="new-close" class="icon-btn" title="关闭">✕</button>
     </div>
@@ -252,7 +252,7 @@
       </label>
       <label style="margin-top:14px">热词(可选,逗号分隔,提升专有名词识别)</label>
       <input id="new-hotwords" type="text" placeholder="如:ColorOS,小布,王小明">
-      <p class="muted tiny">你的选择会被记住,下次自动填好。</p>
+      <p class="muted tiny">你的选择会被记住,下次自动填好。不是所有话都值得留下,但有些必须仍在。</p>
     </div>
     <div class="modal-foot">
       <button id="new-cancel" class="btn ghost">取消</button>
@@ -286,7 +286,7 @@
 <div id="essay-overlay" class="modal-overlay" hidden>
   <div class="modal-card" style="width:min(860px,92vw);height:82vh;max-width:none;max-height:none">
     <div class="modal-head">
-      <span class="mm-title">✍️ AI 随笔</span>
+      <span class="mm-title">✍️ 随笔</span>
       <span id="essay-status" class="muted" style="font-size:12px;margin-left:10px"></span>
       <div class="spacer"></div>
       <button id="essay-regen" class="btn ghost sm">↻ 重新生成</button>
@@ -317,6 +317,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

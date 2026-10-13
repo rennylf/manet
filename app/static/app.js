@@ -1,4 +1,4 @@
-/* 听悟 Lite — 极简功能主义 UI */
+/* Manet — quod manet, manet. 思想仍在。 */
 "use strict";
 window.onerror = (msg, src, line, col) => {
   const el = document.getElementById("toast");
@@ -64,7 +64,7 @@ function statusOf(t) {
   if (t.status === "queued") return { dot: "queued", text: "排队中" };
   if (t.status === "transcribing") return { dot: "running", text: t.stage || "转写中" };
   if (t.polish_status === "running") return { dot: "running", text: t.stage || "AI 标点恢复" };
-  if (t.analysis_status === "running") return { dot: "running", text: "AI 笔记生成中" };
+  if (t.analysis_status === "running") return { dot: "running", text: "Scriba 解读生成中" };
   return { dot: "done", text: "完成" };
 }
 function titleOf(t) { return t.display_title || t.filename; }
@@ -136,7 +136,7 @@ function renderHome() {
     if (t.status === "error") badges.push('<span class="badge warn">转写失败</span>');
     else if (st.dot === "running" || st.dot === "queued") badges.push(`<span class="badge run">${escapeHtml(st.text)}</span>`);
     if (t.polish_status === "done" || t.polished) badges.push('<span class="badge ai">AI 润色</span>');
-    if (t.analyzed) badges.push('<span class="badge ai">AI 笔记</span>');
+    if (t.analyzed) badges.push('<span class="badge ai">已解读</span>');
     if (t.translation_status === "done") badges.push('<span class="badge ai">已翻译</span>');
     if (t.burn_status === "done") badges.push('<span class="badge ai">字幕视频</span>');
     card.innerHTML = `<div class="c-top"><span class="status-dot ${st.dot}"></span><span class="c-title">${escapeHtml(titleOf(t))}</span><button class="card-menu-btn" title="管理">⋯</button></div><div class="c-meta">${fmtDate(t.created_at)}${t.duration ? " · " + fmtDur(t.duration) : ""}${t.language ? " · " + (LANG_NAMES[t.language] || t.language) : ""}</div><div class="c-badges">${badges.join("")}</div>`;
@@ -212,7 +212,7 @@ function openDetail(taskId) {
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
   $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>加载中…</div>';
-  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「✨ AI 笔记」,<br>生成摘要、章节速览、待办与关键词。</div>';
+  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「✨ Scriba 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true;
   renderSidebar(); pollTask(); loadNotes();
@@ -242,7 +242,7 @@ function openNewModal(arg) {
   const isRt = arg && arg.id && arg.filename;
   if (isRt) {
     newCtx = { mode: "retranscribe", task: arg };
-    $("#new-title").textContent = "🔁 重新转写";
+    $("#new-title").textContent = "重新转写";
     $("#new-file").textContent = arg.filename;
     $("#new-engine").value = arg.engine || prefs.engine || "whisper";
     $("#new-language").value = arg.language || "";
@@ -252,7 +252,7 @@ function openNewModal(arg) {
     const file = arg, ext = fileExt(file.name);
     if (!VIDEO_EXT.includes(ext) && !AUDIO_EXT.includes(ext)) { toast("不支持的文件格式:" + ext); return; }
     newCtx = { mode: "upload", file };
-    $("#new-title").textContent = "🎙 新建转写";
+    $("#new-title").textContent = "留下这段声音";
     $("#new-file").textContent = `${file.name}(${(file.size / 1048576).toFixed(1)} MB)`;
     $("#new-engine").value = prefs.engine || "whisper";
     $("#new-language").value = prefs.language || "";
@@ -287,7 +287,7 @@ $("#new-start").addEventListener("click", async () => {
     } else {
       const t = ctx.task;
       const willLose = [
-        t.analyzed && "AI 笔记(摘要/章节/待办)",
+        t.analyzed && "Scriba 解读(摘要/章节/待办)",
         t.translation_status === "done" && "翻译",
         t.polished && "AI 标点恢复",
         t.burn_status === "done" && "字幕视频",
@@ -300,7 +300,7 @@ $("#new-start").addEventListener("click", async () => {
         body: JSON.stringify({ language: prefs.language, hotwords: prefs.hotwords, engine: prefs.engine, auto_translate: prefs.translate }) });
       toast("已加入重新转写队列"); exitEditMode();
       $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>重新转写中…</div>';
-      $("#ai-content").innerHTML = '<div class="empty-hint">转写完成后可生成 AI 笔记。</div>';
+      $("#ai-content").innerHTML = '<div class="empty-hint">转写完成后可生成 Scriba 解读。</div>';
       $("#btn-analyze").disabled = true; pollTask();
     }
   } catch (e) { toast("操作失败:" + e.message); }
@@ -589,7 +589,7 @@ function bindBurn(sel, container) {
 }
 bindBurn("#menu-burn-mp4", "mp4"); bindBurn("#menu-burn-mkv", "mkv");
 
-/* ================= AI 笔记 ================= */
+/* ================= Scriba 解读 ================= */
 $("#btn-analyze").addEventListener("click", async () => { try { await api(`/api/tasks/${state.taskId}/analyze`, { method: "POST" }); switchTab("ai"); pollAnalysis(); } catch (e) { toast("无法开始分析:" + e.message); } });
 function pollAnalysis() {
   const s = $("#ai-status"); switchTab("ai"); s.hidden = false; s.classList.remove("error");
@@ -879,9 +879,9 @@ function jobsOf(t) {
   if (t.translation_status === "running") push("🌐", "翻译", "running", t.stage);
   else if (t.translation_status === "error") push("🌐", "翻译", "error", t.translation_error);
   else if (t.translation_status === "cancelled") push("🌐", "翻译", "cancelled", "已终止");
-  if (t.analysis_status === "running") push("📝", "AI 笔记", "running", "生成中");
-  else if (t.analysis_status === "error") push("📝", "AI 笔记", "error", t.analysis_error);
-  else if (t.analysis_status === "cancelled") push("📝", "AI 笔记", "cancelled", "已终止");
+  if (t.analysis_status === "running") push("📝", "Scriba 解读", "running", "生成中");
+  else if (t.analysis_status === "error") push("📝", "Scriba 解读", "error", t.analysis_error);
+  else if (t.analysis_status === "cancelled") push("📝", "Scriba 解读", "cancelled", "已终止");
   if (t.burn_status === "running") push("🎬", "字幕封装", "running", "正在封装");
   else if (t.burn_status === "done") push("🎬", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
   else if (t.burn_status === "error") push("🎬", "字幕封装", "error", t.burn_error);

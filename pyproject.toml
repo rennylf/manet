@@ -1,12 +1,12 @@
 [project]
-name = "tingwu-local"
-version = "0.1.0"
-description = "本地开源的语音转写与 AI 笔记工具(通义听悟式体验),Apple Silicon 全本地推理,数据不出机器"
+name = "manet-local"
+version = "1.0.0"
+description = "Manet. 思想仍在。— 本地声音转写与解读的个人产品实验;Apple Silicon 全本地推理,数据不出机器"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "rennylf" }]
 keywords = [
-    "transcription", "asr", "whisper", "mlx", "apple-silicon",
+    "manet", "transcription", "asr", "whisper", "mlx", "apple-silicon",
     "meeting-notes", "subtitle", "obsidian", "local-first",
 ]
 classifiers = [

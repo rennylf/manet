@@ -921,6 +921,35 @@ wheels = [
 ]
 
 [[package]]
+name = "manet-local"
+version = "1.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "funasr" },
+    { name = "httpx" },
+    { name = "kaldi-native-fbank" },
+    { name = "mlx-lm" },
+    { name = "mlx-whisper" },
+    { name = "pydantic" },
+    { name = "python-multipart" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "funasr", specifier = ">=1.4.16" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "kaldi-native-fbank", specifier = ">=1.22.3" },
+    { name = "mlx-lm", specifier = ">=0.31.3" },
+    { name = "mlx-whisper", specifier = ">=0.4.0" },
+    { name = "pydantic", specifier = ">=2.9.0" },
+    { name = "python-multipart", specifier = ">=0.0.12" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2668,35 +2697,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/f6/80760e98a08e6649d2d68afb6035af713121dfb615acce8c4f73810ec438/tiktoken-0.14.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:86f66c85e796f5d05d5c4a60ec1d40cbfebc47a32464053528c797163fa9ab89", size = 1251479, upload-time = "2026-08-17T19:49:36.419Z" },
     { url = "https://files.pythonhosted.org/packages/c5/84/50966fb6918a0fb9b32721277e5342bf729a2d74350074d662fbedf9772e/tiktoken-0.14.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:149d97453c4c98c04b081d64a85e635921269b532710d6faf81e9e82b790e7d3", size = 1316673, upload-time = "2026-08-17T19:49:37.756Z" },
     { url = "https://files.pythonhosted.org/packages/35/5e/9b01afd037bfa22a0033963fa091e0f75b6fb15cd85bffb42ff86e697323/tiktoken-0.14.0-cp315-cp315t-win_amd64.whl", hash = "sha256:561e7580f84a79859af1ef6f676968e9030fcc3fe195700b15235bca64f009c9", size = 987929, upload-time = "2026-08-17T19:49:38.947Z" },
-]
-
-[[package]]
-name = "tingwu-local"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "funasr" },
-    { name = "httpx" },
-    { name = "kaldi-native-fbank" },
-    { name = "mlx-lm" },
-    { name = "mlx-whisper" },
-    { name = "pydantic" },
-    { name = "python-multipart" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "funasr", specifier = ">=1.4.16" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "kaldi-native-fbank", specifier = ">=1.22.3" },
-    { name = "mlx-lm", specifier = ">=0.31.3" },
-    { name = "mlx-whisper", specifier = ">=0.4.0" },
-    { name = "pydantic", specifier = ">=2.9.0" },
-    { name = "python-multipart", specifier = ">=0.0.12" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
 ]
 
 [[package]]

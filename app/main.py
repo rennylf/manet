@@ -11,7 +11,8 @@ from pydantic import BaseModel
 from . import config, settings as settings_mod, tasks, transcribe as tr
 from .utils import fmt_ts, load_json
 
-app = FastAPI(title="TingWu Local", version="0.1.0")
+app = FastAPI(title="Manet", version="1.0.0",
+              description="Manet. 思想仍在。— 本地声音转写与解读(quod manet, manet)")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -494,7 +495,7 @@ def api_export_obsidian(task_id: str):
         f"year: {year_tag}",
         "tags: []",
         "author: \"\"",
-        f"source: tingwu-local",
+        f"source: manet",
         "---",
         "",
         f"# {title}",

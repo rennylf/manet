@@ -332,7 +332,7 @@ def _sample_context(transcript: str) -> str:
 
 def chat_with_transcript(sentences: list[dict], analysis: dict | None,
                          messages: list[dict]) -> str:
-    """带着转写稿上下文与用户对话(听悟的「问答」)。
+    """带着转写稿上下文与用户对话(Manet 的「问答」)。
 
     转写稿全文塞入上下文;超长时保留 AI 摘要 + 首尾部分。
     """
