@@ -386,6 +386,11 @@ body {
 .modal-head .mm-title { font-family: var(--serif); font-weight: 700; font-size: 15.5px; letter-spacing: 1px; }
 .modal-body { padding: 16px 18px; overflow-y: auto; }
 .modal-body label { display: block; font-size: 11.5px; color: var(--text-2); margin: 12px 0 5px; letter-spacing: 1px; }
+.set-section { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
+.set-section.first { margin-top: 0; padding-top: 0; border-top: none; }
+.set-section h5 { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 3px; margin: 0 0 4px; }
+.check-grid { display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 2px 0; }
+.check-grid .check-row { margin: 0 !important; font-size: 13px !important; }
 .modal-body label:first-child { margin-top: 0; }
 .modal-body input[type="text"], .modal-body input[type="password"], .modal-body select, .modal-body textarea {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border);

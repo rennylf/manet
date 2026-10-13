@@ -209,47 +209,67 @@
       <button id="set-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
-      <label>AI 服务地址(OpenAI 兼容格式)</label>
-      <input id="set-base" type="text" placeholder="http://localhost:23333/v1">
-      <label>API Key</label>
-      <input id="set-key" type="password" autocomplete="off" placeholder="不需要则留空">
-      <label>模型</label>
-      <div class="field-row">
-        <input id="set-model" list="model-list" placeholder="如 deepseek:deepseek-chat">
-        <button id="set-fetch" class="btn ghost sm">获取可选模型</button>
-      </div>
-      <datalist id="model-list"></datalist>
-      <label>翻译引擎(AI 服务用于笔记/脑图/问答/标点)</label>
-      <div class="seg-ctrl" id="tr-mode-ctrl" style="width:100%">
-        <button data-mode="local" class="active" style="flex:1">本地模型(免费,离线)</button>
-        <button data-mode="api" style="flex:1">API 服务(同上)</button>
-      </div>
-      <div id="tr-local-box" style="margin-top:8px">
+      <!-- ── 板块一:模型设置 ── -->
+      <div class="set-section first">
+        <h5>模型设置</h5>
+        <label>AI 服务地址(OpenAI 兼容格式)</label>
+        <input id="set-base" type="text" placeholder="http://localhost:23333/v1">
+        <label>API Key</label>
+        <input id="set-key" type="password" autocomplete="off" placeholder="不需要则留空">
+        <label>模型</label>
         <div class="field-row">
-          <button id="btn-dl-local" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>下载 / 更新模型</button>
-          <span id="local-model-status" class="muted" style="font-size:11.5px;align-self:center"></span>
+          <input id="set-model" list="model-list" placeholder="如 deepseek:deepseek-chat">
+          <button id="set-fetch" class="btn ghost sm">获取可选模型</button>
         </div>
-        <div style="margin-top:6px">
-          <span class="link" id="btn-toggle-repo" style="font-size:11.5px">更换模型仓库 ▸</span>
-          <input id="set-local-repo" type="text" hidden placeholder="HF 仓库,如 mlx-community/Qwen2.5-3B-Instruct-4bit">
+        <datalist id="model-list"></datalist>
+        <label>转写引擎</label>
+        <select id="set-asr" class="set-select">
+          <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
+          <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
+          <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
+        </select>
+      </div>
+
+      <!-- ── 板块二:改写设置 ── -->
+      <div class="set-section">
+        <h5>改写设置</h5>
+        <label>翻译引擎</label>
+        <div class="seg-ctrl" id="tr-mode-ctrl" style="width:100%">
+          <button data-mode="local" class="active" style="flex:1">本地模型(免费,离线)</button>
+          <button data-mode="api" style="flex:1">API 服务(同上)</button>
+        </div>
+        <div id="tr-local-box" style="margin-top:8px">
+          <div class="field-row">
+            <button id="btn-dl-local" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>下载 / 更新模型</button>
+            <span id="local-model-status" class="muted" style="font-size:11.5px;align-self:center"></span>
+          </div>
+          <div style="margin-top:6px">
+            <span class="link" id="btn-toggle-repo" style="font-size:11.5px">更换模型仓库 ▸</span>
+            <input id="set-local-repo" type="text" hidden placeholder="HF 仓库,如 mlx-community/Qwen2.5-3B-Instruct-4bit">
+          </div>
+        </div>
+        <label class="check-row" style="margin-top:12px">
+          <input type="checkbox" id="set-polish"> 转写后自动用 AI 恢复标点
+        </label>
+        <label style="margin-top:12px">随笔生成提示词</label>
+        <textarea id="set-essay-prompt" rows="5" placeholder="留空使用默认。占位符 {transcript} 会被替换为转写稿全文。"></textarea>
+        <p class="muted tiny" style="margin-top:4px">自定义随笔的写作要求;留空则使用内置默认提示词。</p>
+      </div>
+
+      <!-- ── 板块三:导出设置 ── -->
+      <div class="set-section">
+        <h5>导出设置</h5>
+        <label>Obsidian 导出路径(知识库目录)</label>
+        <input id="set-obsidian-path" type="text" placeholder="留空则默认 ~/Documents/Obsidian">
+        <label style="margin-top:10px">导出内容</label>
+        <div class="check-grid">
+          <label class="check-row"><input type="checkbox" id="sec-transcript"> 转写原文</label>
+          <label class="check-row"><input type="checkbox" id="sec-ai"> AI 笔记</label>
+          <label class="check-row"><input type="checkbox" id="sec-chat"> 问答</label>
+          <label class="check-row"><input type="checkbox" id="sec-notes"> 我的笔记</label>
         </div>
       </div>
-      <label>转写引擎</label>
-      <select id="set-asr" class="set-select">
-        <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
-        <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
-        <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
-      </select>
-      <label class="check-row" style="margin-top:12px">
-        <input type="checkbox" id="set-polish"> 转写后自动用 AI 恢复标点
-      </label>
-      <label style="margin-top:14px">Obsidian 导出路径(知识库目录)</label>
-      <input id="set-obsidian-path" type="text" placeholder="留空则默认 ~/Documents/Obsidian">
-      <label style="margin-top:10px">导出内容(逗号分隔:transcript,ai,chat,notes)</label>
-      <input id="set-obsidian-sections" type="text" placeholder="transcript,ai,chat,notes">
-      <label style="margin-top:14px">随笔生成提示词</label>
-      <textarea id="set-essay-prompt" rows="6" placeholder="留空使用默认。占位符 {transcript} 会被替换为转写稿全文。"></textarea>
-      <p class="muted tiny" style="margin-top:4px">自定义随笔的写作要求;留空则使用内置默认提示词。</p>
+
       <div id="set-result" class="set-result"></div>
       <p class="muted tiny">所有设置只留在本机,修改后立即生效。</p>
     </div>
