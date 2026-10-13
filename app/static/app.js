@@ -986,6 +986,9 @@ function updateFab() {
   const fab = $("#job-fab"); fab.hidden = !(running || awaiting);
   $("#job-fab-icon").innerHTML = icon(running ? "i-running" : "i-download", "icon-18" + (running ? " spin" : ""));
   $("#job-fab-count").textContent = String(running || awaiting);
+  const nc = $("#nav-jobs-count");   // 侧栏「任务」入口同步计数
+  nc.textContent = (running || awaiting) ? String(running + awaiting) : "";
+  nc.classList.toggle("live", running > 0);
   fab.classList.toggle("attention", !running && awaiting > 0);
 }
 let jobsPoll = null;
@@ -996,6 +999,7 @@ function openJobs() {
 }
 $("#jobs-close").addEventListener("click", () => ($("#jobs-overlay").hidden = true));
 $("#job-fab").addEventListener("click", openJobs);
+$("#nav-jobs").addEventListener("click", openJobs);
 
 /* ================= 侧边栏搜索 ================= */
 $("#search-input").addEventListener("input", e => {

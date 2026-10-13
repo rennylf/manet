@@ -105,6 +105,8 @@ body {
 }
 .nav-item:hover { color: var(--text); }
 .nav-item.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+.nav-count { margin-left: auto; font-size: 10.5px; color: var(--text-3); letter-spacing: .5px; }
+.nav-count.live { color: var(--warn); }
 
 .side-search input {
   width: 100%; padding: 6px 10px; border: 1px solid var(--border);
