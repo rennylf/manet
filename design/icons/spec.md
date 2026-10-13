@@ -58,7 +58,7 @@
 
 | 旧（emoji / 字符） | 新图标 | 位置 |
 |---|---|---|
-| 🎙️（logo / 转写） | `i-mark` / `i-wave` | 侧栏 logo / 任务行 |
+| 🎙️（logo / 转写） | `i-mark`（几何日落+音波）/ `i-wave` | 侧栏 logo / favicon / 任务行 |
 | 📚 内容库 | `i-archive` 档案库 | 侧栏导航 |
 | ⚙️ 设置 | `i-settings`（滑杆） | 侧栏导航 / 设置弹窗 |
 | ＋ 上传 | `i-import` | 侧栏主按钮 |
