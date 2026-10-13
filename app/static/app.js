@@ -806,16 +806,17 @@ function mmLayout(root) {
   };
   place(root, 0, 0, "0"); return { nodes, edges };
 }
-const MM_FILLS = ["#615ced", "#eef0ff", "#f7f7fc"], MM_STROKES = ["#615ced", "#b9b6f2", "#dcdce8"], MM_TEXTS = ["#ffffff", "#4038b0", "#3c4048"];
+/* 脑图配色纳入 Manet 色板:根=复古棕底暖白字,一级=浅棕底棕边,二级=白底细边 */
+const MM_FILLS = ["#806B50", "#EFEBE1", "#FFFFFF"], MM_STROKES = ["#806B50", "#C9BFAE", "#E4E0D7"], MM_TEXTS = ["#F7F5F0", "#292824", "#55524A"];
 function renderMindmap() {
   if (!mmTree) return;
   const { nodes, edges } = mmLayout(mmTree), byId = {}; nodes.forEach(n => byId[n.id] = n);
   let g = "";
-  for (const [a, b] of edges) { const p = byId[a], c = byId[b], x1 = p.x + p.w, x2 = c.x, mx = (x1 + x2) / 2; g += `<path d="M ${x1} ${p.y} C ${mx} ${p.y}, ${mx} ${c.y}, ${x2} ${c.y}" fill="none" stroke="#c9ccdb" stroke-width="1.5"/>`; }
+  for (const [a, b] of edges) { const p = byId[a], c = byId[b], x1 = p.x + p.w, x2 = c.x, mx = (x1 + x2) / 2; g += `<path d="M ${x1} ${p.y} C ${mx} ${p.y}, ${mx} ${c.y}, ${x2} ${c.y}" fill="none" stroke="#CFC7B4" stroke-width="1.5"/>`; }
   for (const n of nodes) {
-    const chip = n.seconds != null ? `<text class="mm-time" data-sec="${n.seconds}" x="${n.x + n.w - 10}" y="${n.y + 4}" text-anchor="end" font-size="11" fill="#615ced" font-weight="600">${escapeHtml(n.time || fmtTs(n.seconds, true))}</text>` : "";
-    const badge = (n.collapsed && n.nKids) ? `<text x="${n.x + n.w + 8}" y="${n.y + 4}" font-size="11" fill="#8a8fa3">+${n.nKids}</text>` : "";
-    g += `<g class="mm-node" data-id="${n.id}" data-kids="${n.nKids}"><rect x="${n.x}" y="${n.y - MM_NODE_H / 2}" width="${n.w}" height="${MM_NODE_H}" rx="9" fill="${MM_FILLS[n.depth]}" stroke="${MM_STROKES[n.depth]}"/><text x="${n.x + 12}" y="${n.y + 5}" font-size="${n.depth === 0 ? 15 : 14}" font-weight="${n.depth === 0 ? 600 : 400}" fill="${MM_TEXTS[n.depth]}">${escapeHtml(n.text)}</text>${chip}${badge}<title>${escapeHtml(n.title)}</title></g>`;
+    const chip = n.seconds != null ? `<text class="mm-time" data-sec="${n.seconds}" x="${n.x + n.w - 10}" y="${n.y + 4}" text-anchor="end" font-size="11" fill="#806B50" font-weight="600">${escapeHtml(n.time || fmtTs(n.seconds, true))}</text>` : "";
+    const badge = (n.collapsed && n.nKids) ? `<text x="${n.x + n.w + 8}" y="${n.y + 4}" font-size="11" fill="#858176">+${n.nKids}</text>` : "";
+    g += `<g class="mm-node" data-id="${n.id}" data-kids="${n.nKids}"><rect x="${n.x}" y="${n.y - MM_NODE_H / 2}" width="${n.w}" height="${MM_NODE_H}" rx="3" fill="${MM_FILLS[n.depth]}" stroke="${MM_STROKES[n.depth]}"/><text x="${n.x + 12}" y="${n.y + 5}" font-size="${n.depth === 0 ? 15 : 14}" font-weight="${n.depth === 0 ? 600 : 400}" fill="${MM_TEXTS[n.depth]}">${escapeHtml(n.text)}</text>${chip}${badge}<title>${escapeHtml(n.title)}</title></g>`;
   }
   $("#mm-svg").innerHTML = `<g id="mm-root">${g}</g>`; mmApplyView();
 }
@@ -893,7 +894,7 @@ $("#mm-export").addEventListener("click", () => {
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg"); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const xml = new XMLSerializer().serializeToString(svg), url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
   const img = new Image();
-  img.onload = () => { const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2; const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = "#fafafa"; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); const a = document.createElement("a"); a.download = `${(state.task && state.task.display_title) || "思维导图"}.png`; a.href = c.toDataURL("image/png"); a.click(); toast("已导出 PNG"); };
+  img.onload = () => { const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2; const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = "#FBFAF6"; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); const a = document.createElement("a"); a.download = `${(state.task && state.task.display_title) || "思维导图"}.png`; a.href = c.toDataURL("image/png"); a.click(); toast("已导出 PNG"); };
   img.src = url;
 });
 

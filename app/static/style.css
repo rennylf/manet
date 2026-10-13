@@ -557,6 +557,8 @@ body {
 .transcript { scroll-behavior: smooth; }
 #mm-root { animation: fade-in var(--t-slow) ease-out; }
 .mm-node rect { transition: fill var(--t-fast); }
+#mm-svg text { font-family: var(--serif); letter-spacing: .3px; }   /* 节点文字宋体 */
+#mm-svg .mm-time { font-family: var(--sans); letter-spacing: .5px; } /* 时间戳无衬线 */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
