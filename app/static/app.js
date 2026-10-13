@@ -958,7 +958,7 @@ function renderJobs() {
     else if (j.state === "paused") act = `<button class="btn ghost sm" data-resume="${j.taskId}" title="继续">${icon("i-play")}</button><button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button>`;
     else if (j.state === "canceling") act = '<button class="btn ghost sm" disabled>终止中…</button><span class="spinner"></span>';
     const stage = j.stage || { running: "进行中", paused: "已暂停", canceling: "终止中", await: "完成", error: "失败", cancelled: "已终止" }[j.state];
-    row.innerHTML = `<span class="j-icon">${icon(j.icon, "icon-18" + (j.state === "running" ? " spin" : ""))}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
+    row.innerHTML = `<span class="j-icon">${icon(j.icon, "icon-18")}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
     box.appendChild(row);
   }
   box.querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", () => { const t = state.tasks.find(x => x.id === b.dataset.save); const a = document.createElement("a"); a.href = `/api/tasks/${b.dataset.save}/burned`; a.download = t?.burned_path?.split("/").pop() || "subbed.mp4"; document.body.appendChild(a); a.click(); a.remove(); toast("开始下载"); }));
