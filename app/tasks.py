@@ -61,6 +61,8 @@ _JOB_FIELD = {
     "translate": "translation_status",
     "analyze": "analysis_status",
     "burn": "burn_status",
+    "mindmap": "mindmap_status",
+    "essay": "essay_status",
 }
 
 

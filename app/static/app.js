@@ -853,7 +853,7 @@ async function openMindmap(regen = false) {
     if (r.queued) { toast("脑图任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
     mmTree = r; state.seenMindmap = true; updateDerivBadges();
     $("#mm-overlay").hidden = false; mmCollapsed.clear(); renderMindmap(); mmFit(); mmSetStatus(MM_HINT);
-  } catch (e) { toast("脑图失败:" + e.message, 5000); }
+  } catch (e) { toast(/生成中/.test(e.message) ? e.message : "脑图失败:" + e.message, 5000); }
 }
 /* 脑图/随笔后台任务:角标(完成待看)+ 轮询收尾 */
 function updateDerivBadges() {
@@ -929,7 +929,7 @@ async function openEssay(regen = false) {
     if (r.queued) { toast("随笔任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
     state.seenEssay = true; updateDerivBadges();
     $("#essay-overlay").hidden = false; renderEssay(r.essay); essaySetStatus("");
-  } catch (e) { toast("随笔失败:" + e.message, 5000); }
+  } catch (e) { toast(/生成中/.test(e.message) ? e.message : "随笔失败:" + e.message, 5000); }
 }
 $("#btn-essay").addEventListener("click", () => openEssay(false));
 $("#essay-regen").addEventListener("click", () => openEssay(true));

@@ -47,6 +47,8 @@ def _chat(messages: list[dict], temperature: float = 0.3,
     连续失败则抛 LLMError —— 调用方(如标点恢复)会回退保留原文,不丢内容。
     """
     eff_base = base_url or config.LLM_BASE_URL
+    if not eff_base.strip():
+        raise LLMError("未配置 LLM 服务地址,请先在「设定」中填写 Base URL")
     url = f"{eff_base.rstrip('/')}/chat/completions"
     payload = {"model": model or config.LLM_MODEL, "messages": messages,
                "temperature": temperature}
