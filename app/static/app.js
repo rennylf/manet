@@ -218,7 +218,7 @@ function openDetail(taskId) {
   $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>加载中…</div>';
   $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
-  $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true;
+  $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true; $("#btn-aititle").disabled = true;
   renderSidebar(); pollTask(); loadNotes();
 }
 $("#nav-home").addEventListener("click", showHome);
@@ -476,7 +476,7 @@ function pollTask() {
       if (t.status === "done") {
         if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
         await loadTranscript(); await loadTranslation(); renderTranscript();
-        $("#btn-analyze").disabled = false; $("#btn-mindmap").disabled = false; $("#btn-translate").disabled = false; $("#btn-essay").disabled = false;
+        $("#btn-analyze").disabled = false; $("#btn-mindmap").disabled = false; $("#btn-translate").disabled = false; $("#btn-essay").disabled = false; $("#btn-aititle").disabled = false;
         updateDerivBadges();
         if (t.mindmap_status === "running" || t.essay_status === "running") startDerivPoll();
         if (t.analyzed) await loadAnalysis();
@@ -568,7 +568,7 @@ $("#menu-obsidian").addEventListener("click", async () => {
   } catch (e) { toast("Obsidian 导出失败:" + e.message); }
 });
 
-$("#menu-aititle").addEventListener("click", async () => {
+$("#btn-aititle").addEventListener("click", async () => {
   try {
     const r = await api(`/api/tasks/${state.taskId}/ai-title`, { method: "POST" });
     if (state.task) state.task.ai_title = r.title;
