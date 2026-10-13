@@ -92,7 +92,6 @@ body {
 .btn.danger:hover { background: #F6EDEA; }
 
 .side-btn { width: 100%; margin-bottom: 8px; justify-content: center; }
-.side-btn.soon { color: #BDB7A8; border: 1px dashed var(--border); background: transparent; cursor: not-allowed; }
 
 .nav-item {
   padding: 7px 10px; border-left: 2px solid transparent;
