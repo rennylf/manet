@@ -1,5 +1,6 @@
 """全局配置:路径与可通过环境变量覆盖的选项。"""
 import os
+import sys
 from pathlib import Path
 
 # 修复:某些环境在 NO_PROXY 里写了 "[::1]"(带方括号的 IPv6),
@@ -24,6 +25,8 @@ for d in (UPLOAD_DIR, AUDIO_DIR, RESULT_DIR):
 # ---- 转写 ----
 # MLX 模型仓库(HuggingFace)。turbo 版在 M 系列芯片上约 10x 实时速度
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "mlx-community/whisper-large-v3-turbo")
+# 非 macOS 平台 Whisper 走 faster-whisper(CTranslate2)时的模型仓库
+WHISPER_CT2 = os.environ.get("WHISPER_CT2", "Systran/faster-whisper-large-v3-turbo")
 # None = 自动检测语言;"zh"/"en"/"ja"... 可强制指定
 WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE") or None
 # 转写引擎:whisper(多语种) / paraformer(中文+标点+说话人分离) / sensevoice(快+原生标点)
@@ -40,8 +43,10 @@ POLISH_ENABLED = os.environ.get("POLISH_ENABLED", "1") == "1"
 # LLM 分块并发数(本地模型内部会串行化生成,API 端点按并发提交)
 LLM_PARALLEL = int(os.environ.get("LLM_PARALLEL", "4"))
 
-# ---- 翻译引擎:local(进程内 mlx-lm)/ api(走统一端点)----
-TRANSLATE_MODE = os.environ.get("TRANSLATE_MODE", "local")
+# ---- 翻译引擎：local(进程内 mlx-lm,仅 macOS)/ api(走统一端点)----
+# 非 Apple Silicon 平台 mlx-lm 不可用,默认改走 API
+TRANSLATE_MODE = os.environ.get("TRANSLATE_MODE",
+                                "local" if sys.platform == "darwin" else "api")
 # 本地翻译模型(HF 仓库 id,下载到项目 models/llm/)
 LOCAL_MODEL_REPO = os.environ.get("LOCAL_MODEL_REPO",
                                   "mlx-community/Qwen2.5-3B-Instruct-4bit")

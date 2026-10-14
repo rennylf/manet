@@ -24,12 +24,14 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.12",
-    "mlx-whisper>=0.4.0",
     "httpx>=0.27.0",
     "pydantic>=2.9.0",
     "funasr>=1.4.16",
     "kaldi-native-fbank>=1.22.3",
-    "mlx-lm>=0.31.3",
+    "mlx-lm>=0.31.3; sys_platform == 'darwin'",
+    "mlx-whisper>=0.4.0; sys_platform == 'darwin'",
+    # Windows/Linux:Whisper 走 faster-whisper(CTranslate2,CPU/CUDA)
+    "faster-whisper>=1.0.3; sys_platform != 'darwin'",
 ]
 
 [project.urls]

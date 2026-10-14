@@ -1,14 +1,31 @@
-"""音频抽取 + 本地转写(mlx-whisper)。"""
+"""音频抽取 + 本地转写(macOS: mlx-whisper;Windows 等: faster-whisper)。"""
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from . import config
 
-_FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
-_FFPROBE = shutil.which("ffprobe") or "/opt/homebrew/bin/ffprobe"
+_IS_APPLE = sys.platform == "darwin"
+
+
+def _find_fftool(name: str) -> str:
+    exe = shutil.which(name)
+    if exe:
+        return exe
+    if os.name == "nt":                      # Windows 常见安装位置兜底
+        for c in (rf"C:\ffmpeg\bin\{name}.exe",
+                  rf"C:\Program Files\ffmpeg\bin\{name}.exe"):
+            if os.path.exists(c):
+                return c
+    return f"/opt/homebrew/bin/{name}"
+
+
+_FFMPEG = _find_fftool("ffmpeg")
+_FFPROBE = _find_fftool("ffprobe")
 FFMPEG = _FFMPEG
 
 
@@ -149,10 +166,81 @@ def detect_language(wav_path: Path) -> str | None:
     Whisper 内置检测只用开头 30 秒,发布会/播客开头常是音乐或片头,
     极易误判。多点投票能显著提升鲁棒性。
     """
+    if not _IS_APPLE:
+        try:
+            return _detect_language_fw(wav_path)
+        except Exception:  # noqa: BLE001
+            return None
     try:
         return _detect_language_fast(wav_path)
     except Exception:  # noqa: BLE001 — mlx-whisper 升级导致内部 API 变化时兜底
         return _detect_language_vote(wav_path)
+
+
+# ================= faster-whisper 后端(非 macOS 平台) =================
+_FW_CACHE: dict = {}
+
+
+def _get_fw():
+    """懒加载并缓存 faster-whisper(CTranslate2)模型;首次运行自动下载到 HF_HOME。"""
+    if "model" not in _FW_CACHE:
+        from faster_whisper import WhisperModel
+        _FW_CACHE["model"] = WhisperModel(
+            config.WHISPER_CT2, device="auto", compute_type="auto")
+    return _FW_CACHE["model"]
+
+
+def _fw_detect_once(model, clip: str) -> str | None:
+    res = model.detect_language(clip) if hasattr(model, "detect_language") else None
+    if res is None:                          # 旧版无此方法:借 transcribe 的 info
+        _, info = model.transcribe(clip, beam_size=1)
+        return getattr(info, "language", None)
+    if isinstance(res, tuple) and isinstance(res[0], str):
+        return res[0]                        # (lang, prob)
+    if isinstance(res, list) and res:
+        return max(res, key=lambda x: x[1])[0]   # [(lang, prob), ...]
+    return None
+
+
+def _detect_language_fw(wav_path: Path) -> str | None:
+    model = _get_fw()
+    duration = probe_duration(wav_path)
+    fracs = (0.05, 0.30, 0.60) if duration >= 20 else (0.0,)
+    votes: dict[str, int] = {}
+    tmp_clips = _clip_samples(wav_path, fracs)
+    try:
+        for clip in tmp_clips:
+            lang = _fw_detect_once(model, str(clip))
+            if lang:
+                votes[lang] = votes.get(lang, 0) + 1
+    finally:
+        for c in tmp_clips:
+            c.unlink(missing_ok=True)
+    return max(votes, key=votes.get) if votes else None
+
+
+def _transcribe_fw(wav_path: Path, language: str | None,
+                   hotwords: str | None) -> dict:
+    model = _get_fw()
+    lang = language or config.WHISPER_LANGUAGE or _detect_language_fw(wav_path)
+    prompt = None
+    if hotwords and hotwords.strip():
+        prompt = "以下是可能出现的专有名词:" + "、".join(
+            w.strip() for w in re.split(r"[,,;;\n\s]+", hotwords.strip()) if w.strip()) + "。"
+    segments, info = model.transcribe(
+        str(wav_path), language=lang, initial_prompt=prompt,
+        condition_on_previous_text=False, beam_size=5)
+    segs = [{"start": float(s.start), "end": float(s.end), "text": s.text}
+            for s in segments]
+    sentences = _strip_prompt_echo(
+        _clean_hallucinations(_split_sentences(segs)), hotwords)
+    return {
+        "language": lang or getattr(info, "language", None),
+        "duration": max((s["end"] for s in sentences), default=0.0),
+        "full_text": "".join(s["text"] for s in sentences),
+        "sentences": sentences,
+        "engine": "whisper-ct2",
+    }
 
 
 # Whisper 在音乐/静音段的经典幻觉输出(归一化后匹配,全部丢弃)
@@ -226,7 +314,10 @@ def transcribe(wav_path: Path, language: str | None = None,
 
     language 为空时走多点采样检测;hotwords 通过 initial_prompt 注入
     (Whisper 官方推荐的术语引导方式)。
+    macOS 走 mlx-whisper;其他平台(Windows 等)走 faster-whisper。
     """
+    if not _IS_APPLE:
+        return _transcribe_fw(wav_path, language, hotwords)
     import mlx_whisper  # 延迟导入:首次导入会触发模型加载
 
     lang = language or config.WHISPER_LANGUAGE or detect_language(wav_path)

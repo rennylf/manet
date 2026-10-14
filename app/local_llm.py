@@ -3,12 +3,17 @@
 模型权重存放在项目工作文件夹 models/llm/ 下;仅用于翻译
 (标点/笔记/脑图/问答走 API,见 llm.py 的分发逻辑)。
 """
+import sys
 import threading
 from pathlib import Path
 
 from . import config
 
 MODEL_DIR = config.BASE_DIR / "models" / "llm"
+
+# mlx-lm 仅 Apple Silicon 可用;其他平台翻译应走 API(设定页可切)
+SUPPORTED = sys.platform == "darwin"
+_UNSUPPORTED_MSG = "本地翻译模型仅支持 macOS(Apple Silicon),请在「设定」中把翻译引擎切为 API"
 
 _lock = threading.Lock()
 _dl_lock = threading.Lock()
@@ -42,9 +47,14 @@ def _invalidate_size_cache():
 
 
 def status() -> dict:
+    if not SUPPORTED:
+        return {"repo": config.LOCAL_MODEL_REPO, "installed": False, "supported": False,
+                "size_mb": 0, "downloading": False, "downloaded_mb": 0, "total_mb": 0,
+                "error": _UNSUPPORTED_MSG, "loaded": False}
     size = _model_size()
     return {
         "repo": config.LOCAL_MODEL_REPO,
+        "supported": True,
         "installed": size > 0,
         "size_mb": round(size / 1048576),
         "downloading": _state["downloading"],
@@ -57,6 +67,8 @@ def status() -> dict:
 
 def download() -> dict:
     """后台下载本地模型到 models/llm(已在下载则直接返回状态)。"""
+    if not SUPPORTED:
+        raise RuntimeError(_UNSUPPORTED_MSG)
     with _dl_lock:
         if _state["downloading"]:
             return status()
@@ -99,6 +111,8 @@ _gen_lock = threading.Lock()
 
 def generate_text(messages: list[dict], max_tokens: int = 2000) -> str:
     """对话式生成(用模型自带 chat template)。模型生成串行加锁,线程安全。"""
+    if not SUPPORTED:
+        raise RuntimeError(_UNSUPPORTED_MSG)
     with _gen_lock:
         return _generate(messages, max_tokens)
 

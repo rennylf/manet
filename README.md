@@ -54,10 +54,17 @@ Manet 是一场个人产品实验：探索知识工作者如何用语音与文�
 
 ## 系统要求
 
-- macOS，**Apple Silicon**（M1 及以后；MLX 推理依赖）
-- [ffmpeg](https://ffmpeg.org/)（`brew install ffmpeg`）
-- [uv](https://docs.astral.sh/uv/)（`brew install uv`）
-- 磁盘约 **10GB**（模型首次运行自动下载到项目 `models/`）
+**macOS · Apple Silicon（全功能）**
+- M1 及以后；[ffmpeg](https://ffmpeg.org/) 与 [uv](https://docs.astral.sh/uv/)（`brew install`）
+
+**Windows 10/11（支持）**
+- [uv](https://docs.astral.sh/uv/) 与 [ffmpeg](https://ffmpeg.org/download.html) 加入 PATH
+- Whisper 引擎自动改走 **faster-whisper**（CTranslate2，CPU/CUDA 自适应）
+- 本地翻译不可用（mlx-lm 为 macOS 专属），自动切换 API 模式；
+  Paraformer / SenseVoice 引擎及其余功能与 macOS 一致
+
+- 磁盘约 **10GB**（模型首次运行自动下载到项目 `models/`；
+  Windows 的 Whisper 为 CT2 格式单独下载，ModelScope 目录可跨平台拷贝复用）
 - 可选：任意 OpenAI 兼容 LLM 端点（解读 / 问答 / 随笔 / 标点恢复 / API 翻译）。
   **不配置也能用**：转写、编辑、导出完全离线。
 
@@ -65,10 +72,12 @@ Manet 是一场个人产品实验：探索知识工作者如何用语音与文�
 
 ```bash
 git clone https://github.com/rennylf/manet-local.git
-cd tingwu-local
+cd manet-local
 uv sync          # 安装依赖（首次）
-./start.sh       # 启动，浏览器打开 http://127.0.0.1:8642
+./start.sh       # macOS 启动，浏览器打开 http://127.0.0.1:8642
 ```
+
+Windows：双击 `start.bat`（等价于 `uv sync` 后 `uv run uvicorn app.main:app --port 8642`）。
 
 把声音放进来，选择引擎与语言，开始转写。
 首次转写自动下载模型（HuggingFace / ModelScope）：
