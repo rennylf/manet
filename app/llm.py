@@ -618,14 +618,30 @@ def suggest_titles(sentences: list[dict], exclude: list[str] | None = None,
     return res
 
 
+_TS_HEAD_RE = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[—\-–:：、.]?\s*(.*)$")
+
+
 def _entries(v) -> list[dict]:
-    """LLM 偶发把 chapters/todos 返回成字符串列表 → 统一成 dict。"""
+    """LLM 偶发把 chapters/todos 返回成字符串列表 → 统一成 dict。
+
+    字符串可能是多章节挤在一行("00:13 开场；00:57 主题"),按分号拆段,
+    并把每段开头的时间戳提取进 time 字段(否则前端章节跳转拿不到时间)。
+    """
     out = []
     for x in v or []:
         if isinstance(x, dict):
             out.append(x)
-        elif isinstance(x, str) and x.strip():
-            out.append({"title": x.strip(), "task": x.strip()})
+        elif isinstance(x, str):
+            for part in re.split(r"[；;]\s*", x.strip()):
+                part = part.strip()
+                if not part:
+                    continue
+                m = _TS_HEAD_RE.match(part)
+                if m and m.group(2):
+                    out.append({"time": m.group(1), "title": m.group(2).strip(),
+                                "task": part})
+                else:
+                    out.append({"title": part, "task": part})
     return out
 
 

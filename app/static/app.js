@@ -647,7 +647,11 @@ async function loadAnalysis() {
     for (const c of a.chapters) {
       const el = document.createElement("div"); el.className = "chapter";
       el.innerHTML = `<div class="c-title"><span class="c-time">${escapeHtml(c.time || "")}</span>${escapeHtml(c.title || "")}</div>${c.detail ? `<div class="c-detail">${escapeHtml(c.detail)}</div>` : ""}`;
-      el.addEventListener("click", () => seekTo((typeof c.seconds === "number" && c.seconds > 0) ? c.seconds : (parseTime(c.time) || 0)));
+      el.addEventListener("click", () => {
+        let sec = (typeof c.seconds === "number" && c.seconds > 0) ? c.seconds : parseTime(c.time || "");
+        if (!sec) sec = parseTime((c.title || "").match(/^\s*(\d{1,2}:\d{2}(?::\d{2})?)/)?.[1] || "");  // 旧缓存兜底:时间藏在标题开头
+        seekTo(sec || 0);
+      });
       b.appendChild(el);
     }
   });
