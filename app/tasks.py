@@ -198,6 +198,25 @@ def delete_task(task_id: str):
             pass
 
 
+def _rebase(p: str | None) -> str | None:
+    """项目目录被移动/改名时,把失效的绝对路径按 BASE_DIR 重新锚定。
+
+    存储的路径形如 …/<项目目录>/data/uploads/x.mp4;若原路径已不存在,
+    取 "data" 之后的相对部分挂到当前 BASE_DIR 下,存在则替换。
+    """
+    if not p:
+        return p
+    q = Path(p)
+    if q.exists():
+        return p
+    parts = q.parts
+    if "data" in parts:
+        r = config.BASE_DIR.joinpath(*parts[parts.index("data"):])
+        if r.exists():
+            return str(r)
+    return p
+
+
 def _load():
     global _tasks, _folders
     if _TASKS_FILE.exists():
@@ -205,6 +224,10 @@ def _load():
             _tasks = json.loads(_TASKS_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             _tasks = {}
+    for t in _tasks.values():          # 迁移历史绝对路径(目录改名/搬盘后自愈)
+        for k in ("media", "burned_path"):
+            if t.get(k):
+                t[k] = _rebase(t[k])
     if _FOLDERS_FILE.exists():
         try:
             _folders = json.loads(_FOLDERS_FILE.read_text(encoding="utf-8"))
