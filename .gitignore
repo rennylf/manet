@@ -10,7 +10,7 @@ data/
 models/
 
 # macOS 本地启动器(applet 二进制,机器相关)
-听悟 Lite.app/
+Manet.app/
 nohup.out
 *.log
 
