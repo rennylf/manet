@@ -429,12 +429,18 @@ function highlightAt(t) {
   $$(".seg.active").forEach(el => el.classList.remove("active"));
   segEl.classList.add("active");
   const paraEl = segEl.closest(".para"), pi = +paraEl.dataset.pi, box = $("#transcript");
+  // 滚动目标:让当前段落在「整个网页视口」垂直居中,而非转写框居中
+  // (转写框上方有视频区/下方有播放栏,框内居中在页面上会偏下)
+  const vpCenter = (el) => {
+    const r = box.getBoundingClientRect();
+    return Math.max(0, el.offsetTop + el.offsetHeight / 2 - (window.innerHeight / 2 - r.top));
+  };
   if (pi !== activeParaIdx) {
     activeParaIdx = pi;
-    box.scrollTo({ top: Math.max(0, paraEl.offsetTop - box.clientHeight / 2 + paraEl.offsetHeight / 2), behavior: "smooth" });
+    box.scrollTo({ top: vpCenter(paraEl), behavior: "smooth" });
   } else {
     const r = segEl.offsetTop - box.scrollTop;
-    if (r < 40 || r > box.clientHeight - 60) box.scrollTo({ top: segEl.offsetTop - box.clientHeight / 2, behavior: "smooth" });
+    if (r < 40 || r > box.clientHeight - 60) box.scrollTo({ top: vpCenter(segEl), behavior: "smooth" });
   }
 }
 function parseTime(str) {
