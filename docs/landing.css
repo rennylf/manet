@@ -57,7 +57,7 @@ body {
 ::selection { background: var(--accent-soft); color: var(--ink); }
 a { color: inherit; }
 img, svg { display: block; }
-.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 48px; }
+.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding-left: 48px; padding-right: 48px; }
 .muted { color: var(--weak); }
 
 /* ---------- header ---------- */
@@ -301,7 +301,7 @@ footer { border-top: 1px solid var(--border); padding: 30px 0 44px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
-  .wrap { padding: 0 26px; }
+  .wrap { padding-left: 26px; padding-right: 26px; }
   .hero { grid-template-columns: 1fr; gap: 54px; padding-top: 64px; padding-bottom: 86px; }
   .hero-copy { max-width: 640px; }
   .note-card { right: 8px; bottom: -20px; }
@@ -318,7 +318,7 @@ footer { border-top: 1px solid var(--border); padding: 30px 0 44px; }
   .commands { max-width: 100%; }
 }
 @media (max-width: 560px) {
-  .wrap { padding: 0 20px; }
+  .wrap { padding-left: 20px; padding-right: 20px; }
   .head-inner { gap: 12px; }
   nav { gap: 14px; }
   .brand { font-size: 16px; }
