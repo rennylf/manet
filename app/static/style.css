@@ -552,6 +552,7 @@ body {
 .clear-days button { flex: 1; padding: 6px 0; font-size: 12.5px; }
 #clear-estimate { margin-top: 12px; }
 #confirm-text { white-space: pre-line; }
+#input-field { margin-top: 2px; }
 .btn.ghost.danger:hover { background: #F6EDEA; border-color: #D8B4A8; color: var(--danger); }
 [data-theme="night"] .btn.ghost.danger { border-color: #5A3A32; }
 [data-theme="night"] .btn.ghost.danger:hover { background: #3A2A25; border-color: #6B453A; }

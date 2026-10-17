@@ -70,6 +70,44 @@ $("#confirm-close").addEventListener("click", () => closeConfirm(false));
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !$("#confirm-overlay").hidden) closeConfirm(false);
 });
+
+/* 通用输入弹窗:替代原生 prompt */
+let _inputResolve = null;
+function askText({ title = "输入", value = "", placeholder = "", okText = "确定", hint = "", icon = "i-folder-new" } = {}) {
+  $("#input-title").textContent = title;
+  $("#input-icon").setAttribute("href", "#" + icon);
+  $("#input-field").value = value;
+  $("#input-field").placeholder = placeholder;
+  $("#input-ok").textContent = okText;
+  $("#input-hint").textContent = hint;
+  $("#input-hint").hidden = !hint;
+  $("#input-overlay").hidden = false;
+  setTimeout(() => { $("#input-field").focus(); $("#input-field").select(); }, 30);
+  return new Promise(res => { _inputResolve = res; });
+}
+function closeInput(val) {
+  $("#input-overlay").hidden = true;
+  const r = _inputResolve; _inputResolve = null;
+  if (r) r(val);
+}
+$("#input-ok").addEventListener("click", () => {
+  const v = $("#input-field").value.trim();
+  if (!v) {
+    $("#input-hint").textContent = "名称不能为空";
+    $("#input-hint").hidden = false;
+    $("#input-field").focus();
+    return;
+  }
+  closeInput(v);
+});
+$("#input-field").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); $("#input-ok").click(); }
+});
+$("#input-cancel").addEventListener("click", () => closeInput(null));
+$("#input-close").addEventListener("click", () => closeInput(null));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("#input-overlay").hidden) closeInput(null);
+});
 function fmtTs(sec, fh = false) {
   sec = Math.max(0, Math.floor(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -155,7 +193,7 @@ function renderFolderBar() {
     const mkAct = (txt, fn) => { const s = document.createElement("span"); s.className = "f-act"; s.textContent = txt; s.addEventListener("click", fn); bar.appendChild(s); };
     mkAct("重命名", async () => {
       const f = state.folders.find(x => x.id === state.folderFilter);
-      const n = prompt("文件夹新名称：", f.name);
+      const n = await askText({ title: "重命名文件夹", value: f.name, okText: "保存", icon: "i-edit" });
       if (!n?.trim()) return;
       try {
         await api(`/api/folders/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
@@ -247,7 +285,7 @@ function openMoveMenu(t, x, y) {
     menu.hidden = true;
     try {
       if (a.dataset.newfolder) {
-        const n = prompt("新文件夹名称：");
+        const n = await askText({ title: "新建文件夹", placeholder: "文件夹名称", okText: "创建" });
         if (!n?.trim()) return;
         const f = await api("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
         await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: f.id }) });
@@ -266,7 +304,8 @@ function openMoveMenu(t, x, y) {
 }
 document.addEventListener("click", e => { if (!e.target.closest("#card-menu")) $("#card-menu").hidden = true; });
 $("#btn-new-folder").addEventListener("click", async () => {
-  const n = prompt("新文件夹名称："); if (!n?.trim()) return;
+  const n = await askText({ title: "新建文件夹", placeholder: "文件夹名称", okText: "创建" });
+  if (!n?.trim()) return;
   try {
     const f = await api("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
     state.folderFilter = f.id; fetchFolders(); toast("文件夹已创建");

@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -443,6 +443,26 @@
   </div>
 </div>
 
+<!-- 通用输入 -->
+<div id="input-overlay" class="modal-overlay on-top" hidden>
+  <div class="modal-card" style="width:400px">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use id="input-icon" href="#i-folder-new"/></svg> <span id="input-title">新建文件夹</span></span>
+      <div class="spacer"></div>
+      <button id="input-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input id="input-field" type="text" autocomplete="off">
+      <p class="muted tiny" id="input-hint"></p>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button id="input-cancel" class="btn ghost">取消</button>
+      <button id="input-ok" class="btn primary">确定</button>
+    </div>
+  </div>
+</div>
+
 <!-- 导出弹窗 -->
 <div id="export-overlay" class="modal-overlay" hidden>
   <div class="modal-card" style="width:460px">
@@ -520,6 +540,6 @@
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
 <script src="visual.js?v=2"></script>
-<script src="app.js?v=30"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>
