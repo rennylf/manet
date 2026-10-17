@@ -1,6 +1,7 @@
 """FastAPI 入口:上传、任务状态、转写稿读写、AI 分析、导出、媒体回放。"""
 import json
 import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -33,8 +34,8 @@ async def upload(
     ext = Path(name).suffix.lower()
     if ext not in config.ALLOWED_EXT:
         raise HTTPException(400, f"不支持的格式 {ext},支持:{' '.join(sorted(config.ALLOWED_EXT))}")
-    # 先落盘为临时文件,create_task 内部会用 task_id 重命名
-    tmp = config.UPLOAD_DIR / f"tmp_{int(time.time()*1000)}{ext}"
+    # 先落盘为临时文件,create_task 会按原文件名保存到档案目录
+    tmp = config.UPLOAD_DIR / f"tmp_{uuid.uuid4().hex}{ext}"
     size = 0
     with open(tmp, "wb") as f:
         while chunk := await file.read(1024 * 1024):
@@ -95,8 +96,30 @@ class VisualReq(BaseModel):
 
 
 @app.get("/api/tasks/{task_id}/visuals")
-def api_get_visuals(task_id: str):
-    return {"visuals": load_json(config.RESULT_DIR / f"{task_id}.visuals.json") or []}
+def api_get_visuals(task_id: str, meta: bool = False):
+    """meta=1 时剥离 HTML 正文,列表轻量;详情再单独取。"""
+    items = load_json(config.RESULT_DIR / f"{task_id}.visuals.json") or []
+    if meta:
+        out = []
+        for it in items:
+            row = dict(it)
+            spec = dict(it.get("spec") or {})
+            if spec.get("html"):
+                spec.pop("html", None)
+                row["has_html"] = True
+            row["spec"] = spec
+            out.append(row)
+        items = out
+    return {"visuals": items}
+
+
+@app.get("/api/tasks/{task_id}/visuals/{vid}")
+def api_get_visual(task_id: str, vid: str):
+    items = load_json(config.RESULT_DIR / f"{task_id}.visuals.json") or []
+    item = next((x for x in items if x.get("id") == vid), None)
+    if item is None:
+        raise HTTPException(404, "视觉化条目不存在")
+    return item
 
 
 @app.post("/api/tasks/{task_id}/visuals")
@@ -264,7 +287,10 @@ def api_list_folders():
 def api_create_folder(body: FolderReq):
     if not body.name.strip():
         raise HTTPException(400, "文件夹名不能为空")
-    return tasks.create_folder(body.name)
+    try:
+        return tasks.create_folder(body.name)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
 
 
 @app.patch("/api/folders/{folder_id}")
@@ -273,12 +299,19 @@ def api_rename_folder(folder_id: str, body: FolderReq):
         tasks.rename_folder(folder_id, body.name)
     except KeyError:
         raise HTTPException(404, "文件夹不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     return {"ok": True}
 
 
 @app.delete("/api/folders/{folder_id}")
 def api_delete_folder(folder_id: str):
-    tasks.delete_folder(folder_id)
+    try:
+        tasks.delete_folder(folder_id)
+    except KeyError:
+        raise HTTPException(404, "文件夹不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     return {"ok": True}
 
 
@@ -292,6 +325,8 @@ def api_move_task(task_id: str, body: MoveReq):
         tasks.move_task(task_id, body.folder_id)
     except KeyError:
         raise HTTPException(404, "任务或文件夹不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     return {"ok": True}
 
 
@@ -301,6 +336,8 @@ def api_delete_task(task_id: str):
         tasks.delete_task(task_id)
     except KeyError:
         raise HTTPException(404, "任务不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     return {"ok": True}
 
 
@@ -340,6 +377,8 @@ def api_set_title(task_id: str, body: TitleReq):
         tasks.set_title(task_id, body.title)
     except KeyError:
         raise HTTPException(404, "任务不存在")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     return {"ok": True}
 
 

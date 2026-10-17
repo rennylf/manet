@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -87,13 +87,13 @@
     <section id="view-home" class="view">
       <div class="home-scroll">
         <div id="dropzone" class="home-hero">
-          <h2><svg class="icon icon-14" style="color:var(--accent)"><use href="#i-import"/></svg> 把声音放进来,或 <span class="link">点击选择</span></h2>
-          <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv,最大 2GB ·
-          转写与解读,只在你自己的机器上发生</p>
+          <h2><svg class="icon icon-14" style="color:var(--accent)"><use href="#i-import"/></svg> 把声音放进来，或 <span class="link">点击选择</span></h2>
+          <p class="hint">mp3 · wav · m4a · flac · mp4 · mov · mkv，最大 2GB ·
+          转写与解读，只在你自己的机器上发生</p>
         </div>
         <div class="home-options">
           <div class="muted" style="font-size:12px">
-            不记录一切,只留下重要的。选择转写的方式,你的选择会被记住。
+            不记录一切，只留下重要的。选择转写的方式，你的选择会被记住。
           </div>
         </div>
         <div class="home-list-head">
@@ -156,7 +156,7 @@
             </div>
             <div class="spacer"></div>
             <input id="transcript-search" class="tsearch" type="search" placeholder="搜索正文…">
-            <button id="btn-read" class="btn ghost sm" title="阅读模式:点击正文不再跳转,可选中文本标注"><svg class="icon"><use href="#i-read"/></svg>阅读</button>
+            <button id="btn-read" class="btn ghost sm" title="阅读模式：点击正文不再跳转，可选中文本标注"><svg class="icon"><use href="#i-read"/></svg>阅读</button>
             <button id="btn-edit" class="btn ghost sm"><svg class="icon"><use href="#i-edit"/></svg>编辑</button>
             <button id="btn-save-edit" class="btn primary sm" hidden>保存修改</button>
           </div>
@@ -181,25 +181,25 @@
           </div>
           <div id="tab-chat" class="tab-pane" hidden>
             <div id="chat-messages" class="chat-messages">
-              <div class="empty-hint">向这段留存提问,比如:<br>「这场发布会的主角是谁?」「总结一下关于小布的部分」<br>它不插话、不评判,只引用内容回答。</div>
+              <div class="empty-hint">向这段留存提问，比如：<br>「这场发布会的主角是谁？」「总结一下关于小布的部分」<br>它不插话、不评判，只引用内容回答。</div>
             </div>
             <div class="chat-input-row">
-              <textarea id="chat-input" rows="1" placeholder="输入问题,Enter 发送…"></textarea>
+              <textarea id="chat-input" rows="1" placeholder="输入问题，Enter 发送…"></textarea>
               <button id="btn-chat-send" class="btn primary sm">发送</button>
             </div>
           </div>
           <div id="tab-notes" class="tab-pane" hidden>
-            <textarea id="my-notes" class="my-notes" placeholder="此刻的理解,值得留下。自动保存…"></textarea>
+            <textarea id="my-notes" class="my-notes" placeholder="此刻的理解，值得留下。自动保存…"></textarea>
             <div id="notes-status" class="notes-status"></div>
           </div>
           <div id="tab-visual" class="tab-pane" hidden>
             <div id="visual-list" class="visual-list">
-              <div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片,<br>或在阅读模式下选中一段文字单独视觉化。</div>
+              <div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片，<br>或在阅读模式下选中一段文字单独视觉化。</div>
             </div>
           </div>
           <div id="tab-annot" class="tab-pane" hidden>
             <div id="annot-list" class="annot-list">
-              <div class="empty-hint">阅读模式下选中文本,可高亮或写下评论。<br>所有批注会汇总在这里。</div>
+              <div class="empty-hint">阅读模式下选中文本，可高亮或写下评论。<br>所有批注会汇总在这里。</div>
             </div>
           </div>
         </div>
@@ -259,9 +259,9 @@
         <datalist id="model-list"></datalist>
         <label>转写引擎</label>
         <select id="set-asr" class="set-select">
-          <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
-          <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
-          <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
+          <option value="whisper">Whisper(多语种，推荐日语/英语内容)</option>
+          <option value="paraformer">Paraformer(中文推荐，自带标点和说话人区分)</option>
+          <option value="sensevoice">SenseVoice(速度最快，标点由 AI 补全)</option>
         </select>
       </div>
 
@@ -270,7 +270,7 @@
         <h5>改写设置</h5>
         <label>翻译引擎</label>
         <div class="seg-ctrl" id="tr-mode-ctrl" style="width:100%">
-          <button data-mode="local" class="active" style="flex:1">本地模型(免费,离线)</button>
+          <button data-mode="local" class="active" style="flex:1">本地模型（免费、离线）</button>
           <button data-mode="api" style="flex:1">API 服务(同上)</button>
         </div>
         <div id="tr-local-box" style="margin-top:8px">
@@ -280,7 +280,7 @@
           </div>
           <div style="margin-top:6px">
             <span class="link" id="btn-toggle-repo" style="font-size:11.5px">更换模型仓库 ▸</span>
-            <input id="set-local-repo" type="text" hidden placeholder="HF 仓库,如 mlx-community/Qwen2.5-3B-Instruct-4bit">
+            <input id="set-local-repo" type="text" hidden placeholder="HF 仓库，如 mlx-community/Qwen2.5-3B-Instruct-4bit">
           </div>
         </div>
         <label class="check-row" style="margin-top:12px">
@@ -292,7 +292,7 @@
       </div>
 
       <div id="set-result" class="set-result"></div>
-      <p class="muted tiny">所有设定只留在本机,修改后立即生效。</p>
+      <p class="muted tiny">所有设定只留在本机，修改后立即生效。</p>
     </div>
     <div class="modal-foot">
       <button id="set-test" class="btn ghost">测试连接</button>
@@ -314,9 +314,9 @@
       <div id="new-file" class="new-file"></div>
       <label>转写引擎</label>
       <select id="new-engine" class="set-select">
-        <option value="whisper">Whisper(多语种,推荐日语/英语内容)</option>
-        <option value="paraformer">Paraformer(中文推荐,自带标点和说话人区分)</option>
-        <option value="sensevoice">SenseVoice(速度最快,标点由 AI 补全)</option>
+        <option value="whisper">Whisper(多语种，推荐日语/英语内容)</option>
+        <option value="paraformer">Paraformer(中文推荐，自带标点和说话人区分)</option>
+        <option value="sensevoice">SenseVoice(速度最快，标点由 AI 补全)</option>
       </select>
       <label>语言</label>
       <select id="new-language" class="set-select">
@@ -330,9 +330,9 @@
       <label class="check-row" style="margin-top:14px">
         <input type="checkbox" id="new-translate"> 转写完成后自动翻译成中文
       </label>
-      <label style="margin-top:14px">热词(可选,逗号分隔,提升专有名词识别)</label>
-      <input id="new-hotwords" type="text" placeholder="如:ColorOS,小布,王小明">
-      <p class="muted tiny">你的选择会被记住,下次自动填好。不是所有话都值得留下,但有些必须仍在。</p>
+      <label style="margin-top:14px">热词（可选，逗号分隔，提升专有名词识别）</label>
+      <input id="new-hotwords" type="text" placeholder="如：ColorOS、小布、王小明">
+      <p class="muted tiny">你的选择会被记住，下次自动填好。不是所有话都值得留下，但有些必须仍在。</p>
     </div>
     <div class="modal-foot">
       <button id="new-cancel" class="btn ghost">取消</button>
@@ -424,6 +424,25 @@
   </div>
 </div>
 
+<!-- 通用确认 -->
+<div id="confirm-overlay" class="modal-overlay on-top" hidden>
+  <div class="modal-card" style="width:400px">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use id="confirm-icon" href="#i-mark"/></svg> <span id="confirm-title">确认</span></span>
+      <div class="spacer"></div>
+      <button id="confirm-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="clear-lead" id="confirm-text"></p>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button id="confirm-cancel" class="btn ghost">取消</button>
+      <button id="confirm-ok" class="btn ghost danger">确定</button>
+    </div>
+  </div>
+</div>
+
 <!-- 导出弹窗 -->
 <div id="export-overlay" class="modal-overlay" hidden>
   <div class="modal-card" style="width:460px">
@@ -445,7 +464,7 @@
           <label class="check-row"><input type="checkbox" id="ex-chat"> 问答</label>
           <label class="check-row"><input type="checkbox" id="ex-notes"> 札记</label>
         </div>
-        <p class="muted tiny" id="ex-hint" style="margin-top:8px">Markdown 格式,原文分段与转写框一致。</p>
+        <p class="muted tiny" id="ex-hint" style="margin-top:8px">Markdown 格式，原文分段与转写框一致。</p>
       </div>
       <div class="set-section">
         <h5>导出文件夹</h5>
@@ -501,6 +520,6 @@
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
 <script src="visual.js?v=2"></script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

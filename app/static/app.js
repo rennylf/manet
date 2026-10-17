@@ -33,7 +33,10 @@ const LANG_NAMES = { zh: "中文", en: "英文", ja: "日文", ko: "韩文", yue
 
 /* ================= 工具 ================= */
 function toast(msg, ms = 2600, type) {
-  msg = String(msg).replace(/([㐀-鿿])\s*,\s*/g, "$1，");   // 中文全角逗号
+  msg = String(msg);
+  if (!/[\\/]/.test(msg)) {              // 路径里的逗号保持原样
+    msg = msg.replace(/([㐀-鿿])\s*,\s*/g, "$1，");
+  }
   const el = $("#toast");
   // 语义:显式指定优先;否则按文案轻量判定(失败类/完成类/中性)
   const t = type || (/失败|错误|不可|拒绝|不存在/.test(msg) ? "err"
@@ -44,6 +47,29 @@ function toast(msg, ms = 2600, type) {
   el.hidden = false;
   clearTimeout(el._t); el._t = setTimeout(() => (el.hidden = true), ms);
 }
+
+/* 通用确认弹窗:替代原生 confirm,保持 Manet 视觉 */
+let _confirmResolve = null;
+function askConfirm({ title = "确认", text = "", okText = "确定", danger = true, icon = "i-error" } = {}) {
+  $("#confirm-title").textContent = title;
+  $("#confirm-text").textContent = text;
+  $("#confirm-ok").textContent = okText;
+  $("#confirm-ok").className = "btn ghost" + (danger ? " danger" : "");
+  $("#confirm-icon").setAttribute("href", "#" + icon);
+  $("#confirm-overlay").hidden = false;
+  return new Promise(res => { _confirmResolve = res; });
+}
+function closeConfirm(val) {
+  $("#confirm-overlay").hidden = true;
+  const r = _confirmResolve; _confirmResolve = null;
+  if (r) r(val);
+}
+$("#confirm-ok").addEventListener("click", () => closeConfirm(true));
+$("#confirm-cancel").addEventListener("click", () => closeConfirm(false));
+$("#confirm-close").addEventListener("click", () => closeConfirm(false));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("#confirm-overlay").hidden) closeConfirm(false);
+});
 function fmtTs(sec, fh = false) {
   sec = Math.max(0, Math.floor(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -129,16 +155,21 @@ function renderFolderBar() {
     const mkAct = (txt, fn) => { const s = document.createElement("span"); s.className = "f-act"; s.textContent = txt; s.addEventListener("click", fn); bar.appendChild(s); };
     mkAct("重命名", async () => {
       const f = state.folders.find(x => x.id === state.folderFilter);
-      const n = prompt("文件夹新名称:", f.name);
+      const n = prompt("文件夹新名称：", f.name);
       if (!n?.trim()) return;
-      await api(`/api/folders/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
-      fetchFolders();
+      try {
+        await api(`/api/folders/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
+        fetchFolders();
+      } catch (e) { toast("重命名失败:" + e.message, 4000); }
     });
     mkAct("删除", async () => {
       const f = state.folders.find(x => x.id === state.folderFilter);
-      if (!confirm(`删除文件夹「${f.name}」?夹内录音回到根目录。`)) return;
-      await api(`/api/folders/${f.id}`, { method: "DELETE" });
-      state.folderFilter = null; fetchFolders();
+      if (!(await askConfirm({ title: "删除文件夹", okText: "删除",
+        text: `删除文件夹「${f.name}」？夹内档案会回到根目录。` }))) return;
+      try {
+        await api(`/api/folders/${f.id}`, { method: "DELETE" });
+        state.folderFilter = null; fetchFolders();
+      } catch (e) { toast("删除失败:" + e.message, 4000); }
     });
   }
 }
@@ -168,7 +199,7 @@ function renderHome() {
     grid.appendChild(card);
   }
   if (!list.length && state.tasks.length) grid.innerHTML = '<div class="empty-hint">没有匹配的录音</div>';
-  else if (!state.tasks.length) grid.innerHTML = '<div class="empty-hint">还没有录音,上传第一个文件开始吧</div>';
+  else if (!state.tasks.length) grid.innerHTML = '<div class="empty-hint">还没有录音，上传第一个文件开始吧</div>';
   state.homeAnim = false;
 }
 function openCardMenu(t, x, y) {
@@ -185,13 +216,18 @@ function openCardMenu(t, x, y) {
     const a = e.target.closest("a"); if (!a) return;
     menu.hidden = true;
     if (a.dataset.move !== undefined) {
-      await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: a.dataset.move || null }) });
-      fetchTasks();
+      try {
+        await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: a.dataset.move || null }) });
+        fetchTasks();
+      } catch (err) { toast("移动失败:" + err.message, 4000); }
     } else if (a.dataset.del) {
-      if (!confirm(`删除「${titleOf(t)}」？所有相关文件会被删除，不可恢复。`)) return;
-      await api(`/api/tasks/${t.id}`, { method: "DELETE" });
-      if (state.view === "detail" && state.taskId === t.id) showHome();
-      fetchTasks();
+      if (!(await askConfirm({ title: "删除档案", okText: "删除",
+        text: `删除「${titleOf(t)}」？录音、转写与全部衍生内容都会被删除，不可恢复。` }))) return;
+      try {
+        await api(`/api/tasks/${t.id}`, { method: "DELETE" });
+        if (state.view === "detail" && state.taskId === t.id) { showHome(); resetPlayer(); }
+        fetchTasks();
+      } catch (err) { toast("删除失败:" + err.message, 4000); }
     }
   };
 }
@@ -199,7 +235,7 @@ function openMoveMenu(t, x, y) {
   const menu = $("#card-menu");
   const items = ['<div class="cm-head">移动到</div><a data-move="">根目录</a>'];
   for (const f of state.folders) if (f.id !== t.folder) items.push(`<a data-move="${f.id}">${escapeHtml(f.name)}</a>`);
-  if (!state.folders.length) items.push('<div class="cm-head">还没有文件夹</div>');
+  items.push('<div class="cm-sep"></div><a data-newfolder="1">新建文件夹…</a>');
   menu.innerHTML = items.join("");
   menu.hidden = false;
   const r = menu.getBoundingClientRect();
@@ -207,21 +243,34 @@ function openMoveMenu(t, x, y) {
   menu.style.top = Math.min(y, window.innerHeight - r.height - 10) + "px";
   menu.onclick = async e => {
     const a = e.target.closest("a");
-    if (!a || a.dataset.move === undefined) return;
+    if (!a) return;
     menu.hidden = true;
     try {
-      await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: a.dataset.move || null }) });
-      if (state.task && state.task.id === t.id) state.task.folder = a.dataset.move || null;
-      toast("已移动");
-      fetchTasks();
-    } catch (err) { toast("移动失败:" + err.message, 4000); }
+      if (a.dataset.newfolder) {
+        const n = prompt("新文件夹名称：");
+        if (!n?.trim()) return;
+        const f = await api("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
+        await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: f.id }) });
+        if (state.task && state.task.id === t.id) state.task.folder = f.id;
+        await fetchFolders();
+        toast("已新建文件夹并移入");
+        fetchTasks();
+      } else if (a.dataset.move !== undefined) {
+        await api(`/api/tasks/${t.id}/move`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_id: a.dataset.move || null }) });
+        if (state.task && state.task.id === t.id) state.task.folder = a.dataset.move || null;
+        toast("已移动");
+        fetchTasks();
+      }
+    } catch (err) { toast("操作失败:" + err.message, 4000); }
   };
 }
 document.addEventListener("click", e => { if (!e.target.closest("#card-menu")) $("#card-menu").hidden = true; });
 $("#btn-new-folder").addEventListener("click", async () => {
-  const n = prompt("新文件夹名称:"); if (!n?.trim()) return;
-  const f = await api("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
-  state.folderFilter = f.id; fetchFolders(); toast("文件夹已创建");
+  const n = prompt("新文件夹名称："); if (!n?.trim()) return;
+  try {
+    const f = await api("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
+    state.folderFilter = f.id; fetchFolders(); toast("文件夹已创建");
+  } catch (e) { toast("创建失败:" + e.message, 4000); }
 });
 async function fetchFolders() {
   try { state.folders = await api("/api/folders"); } catch { return; }
@@ -261,9 +310,10 @@ function openDetail(taskId) {
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
   $("#transcript").innerHTML = '<div class="empty-hint"><span class="spinner"></span>加载中…</div>';
-  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
+  $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」，<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true; $("#btn-aititle").disabled = true;
+  $("#btn-translate").innerHTML = trBtnHTML;
   renderSidebar(); pollTask(); loadNotes(); loadHighlights(); loadVisuals();
 }
 $("#nav-home").addEventListener("click", showHome);
@@ -342,9 +392,9 @@ $("#new-start").addEventListener("click", async () => {
         t.burn_status === "done" && "字幕视频",
       ].filter(Boolean);
       const msg = "重新转写将覆盖当前转写稿" + (willLose.length
-        ? ",\n同时清除以下 AI 产出:\n• " + willLose.join("\n• ") : "")
-        + "\n\n确定继续?";
-      if (!confirm(msg)) return;
+        ? "，\n同时清除以下 AI 产出：\n• " + willLose.join("\n• ") : "")
+        + "\n\n确定继续？";
+      if (!(await askConfirm({ title: "重新转写", okText: "继续", text: msg }))) return;
       await api(`/api/tasks/${t.id}/retranscribe`, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: prefs.language, hotwords: prefs.hotwords, engine: prefs.engine, auto_translate: prefs.translate }) });
       toast("已加入重新转写队列"); exitEditMode();
@@ -367,6 +417,18 @@ function setupPlayer(t) {
   player.src = `/media/${t.id}`;
 }
 let playerReadyFor = null;
+function resetPlayer() {
+  try { player.pause(); } catch {}
+  player.removeAttribute("src");
+  try { player.load(); } catch {}
+  playerReadyFor = null;
+  state.isVideo = false;
+  applyVideoReading();
+  $("#pb-play").innerHTML = icon("i-play", "icon-18");
+  $("#pb-seek").value = 0;
+  $("#pb-cur").textContent = "00:00";
+  $("#pb-dur").textContent = "00:00";
+}
 
 $("#pb-play").addEventListener("click", () => { player.paused ? player.play() : player.pause(); });
 player.addEventListener("play", () => { $("#pb-play").innerHTML = icon("i-pause", "icon-18"); });
@@ -592,7 +654,7 @@ function renderAnnotList() {
   const cnt = $("#annot-count");
   if (cnt) cnt.textContent = items.length ? String(items.length) : "";
   if (!items.length) {
-    box.innerHTML = '<div class="empty-hint">阅读模式下选中文本,可高亮或写下评论。<br>所有批注会汇总在这里。</div>';
+    box.innerHTML = '<div class="empty-hint">阅读模式下选中文本，可高亮或写下评论。<br>所有批注会汇总在这里。</div>';
     return;
   }
   box.innerHTML = "";
@@ -703,7 +765,7 @@ function applyTranscriptSearch(q) {
 $("#btn-edit").addEventListener("click", () => {
   state.editing = true; $$(".seg .line.orig").forEach(el => (el.contentEditable = "true"));
   $("#btn-edit").hidden = true; $("#btn-save-edit").hidden = false;
-  toast("点击文字即可修改,完成后点「保存修改」");
+  toast("点击文字即可修改，完成后点「保存修改」");
 });
 $("#btn-save-edit").addEventListener("click", async () => {
   const updated = state.sentences.map((s, i) => ({
@@ -714,7 +776,7 @@ $("#btn-save-edit").addEventListener("click", async () => {
     const hadAnnots = state.marks.length + state.comments.length;
     state.sentences = updated; state.marks = []; state.comments = [];
     exitEditMode(); renderTranscript(); renderAnnotList();
-    toast(hadAnnots ? "已保存,原批注已随文本更新清空" : "已保存");
+    toast(hadAnnots ? "已保存，原批注已随文本更新清空" : "已保存");
   } catch (e) { toast("保存失败:" + e.message); }
 });
 function exitEditMode() {
@@ -790,17 +852,23 @@ $$("#lang-ctrl button").forEach(b => {
 async function loadTranslation() {
   try { const r = await api(`/api/tasks/${state.taskId}/translation`); state.translation = r.zh; } catch { state.translation = null; }
 }
+const trBtnHTML = $("#btn-translate").innerHTML;
+function setTranslateBusy(on) {
+  const b = $("#btn-translate");
+  b.disabled = on;
+  b.innerHTML = on ? icon("i-running", "spin") + "翻译中…" : trBtnHTML;
+}
 $("#btn-translate").addEventListener("click", async () => {
   try { await api(`/api/tasks/${state.taskId}/translate`, { method: "POST" }); pollTranslate(); } catch (e) { toast("无法开始翻译:" + e.message); }
 });
 function pollTranslate() {
-  $("#btn-translate").disabled = true;
+  setTranslateBusy(true);
   if (state.translatePoll) clearInterval(state.translatePoll);
   state.translatePoll = setInterval(async () => {
     try {
       const t = await api(`/api/tasks/${state.taskId}`); state.task = t;
-      if (t.translation_status === "done") { clearInterval(state.translatePoll); state.translatePoll = null; $("#btn-translate").disabled = false; await loadTranslation(); renderTranscript(); fetchTasks(); toast("翻译完成"); }
-      else if (t.translation_status === "error") { clearInterval(state.translatePoll); state.translatePoll = null; $("#btn-translate").disabled = false; toast("翻译失败:" + (t.translation_error || ""), 5000); }
+      if (t.translation_status === "done") { clearInterval(state.translatePoll); state.translatePoll = null; setTranslateBusy(false); await loadTranslation(); renderTranscript(); fetchTasks(); toast("翻译完成"); }
+      else if (t.translation_status === "error") { clearInterval(state.translatePoll); state.translatePoll = null; setTranslateBusy(false); toast("翻译失败:" + (t.translation_error || ""), 5000); }
     } catch {}
   }, 2000);
 }
@@ -834,7 +902,7 @@ function openExport() {
   for (const [k, sel] of Object.entries(map)) {
     const el = $(sel); el.disabled = !has[k]; if (!has[k]) el.checked = false;
   }
-  $("#ex-hint").textContent = "Markdown 格式,原文分段与转写框一致。"
+  $("#ex-hint").textContent = "Markdown 格式，原文分段与转写框一致。"
     + (has.translation ? "" : " 尚未生成译文。");
   $("#ex-dir").value = localStorage.getItem(EX_DIR_KEY) || "~/Downloads/Manet";
   $("#ex-dir-history").innerHTML = exportDirHistory()
@@ -868,12 +936,12 @@ $("#ex-save").addEventListener("click", async () => {
 /* 更多菜单:字幕导出与影音封装(从导出弹窗分离,合并为单一封装动作) */
 $("#menu-srt").addEventListener("click", () => {
   const lang = state.displayMode;
-  if (lang !== "orig" && !state.translation) { toast("请先生成翻译,再导出中文/双语字幕"); return; }
+  if (lang !== "orig" && !state.translation) { toast("请先生成翻译，再导出中文/双语字幕"); return; }
   window.open(`/api/tasks/${state.taskId}/export?format=srt&lang=${lang}`, "_blank");
 });
 $("#menu-burn").addEventListener("click", () => {
   const mode = state.displayMode;
-  if (mode !== "orig" && !state.translation) { toast("请先生成翻译,再封装中文字幕"); return; }
+  if (mode !== "orig" && !state.translation) { toast("请先生成翻译，再封装中文字幕"); return; }
   api(`/api/tasks/${state.taskId}/burn`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode, container: "mp4" }),
@@ -894,7 +962,11 @@ $("#btn-aititle").addEventListener("click", async () => {
   finally { b.disabled = state.task?.status !== "done"; }
 });
 $("#menu-polish").addEventListener("click", async () => {
-  try { await api(`/api/tasks/${state.taskId}/polish`, { method: "POST" }); pollPolish(); } catch (e) { toast("无法润色:" + e.message); }
+  try {
+    await api(`/api/tasks/${state.taskId}/polish`, { method: "POST" });
+    pollPolish();
+    toast("标点恢复已开始，完成后提示", 3500);
+  } catch (e) { toast("无法润色:" + e.message); }
 });
 $("#menu-retranscribe").addEventListener("click", () => { if (state.task) openNewModal(state.task); });
 $("#menu-move").addEventListener("click", e => {
@@ -907,11 +979,12 @@ $("#menu-move").addEventListener("click", e => {
 $("#menu-delete").addEventListener("click", async () => {
   $("#more-menu").hidden = true;
   if (!state.task) return;
-  if (!confirm(`删除档案「${titleOf(state.task)}」？录音、转写与全部衍生内容都会删除，不可恢复。`)) return;
+  if (!(await askConfirm({ title: "删除档案", okText: "删除",
+    text: `删除「${titleOf(state.task)}」？录音、转写与全部衍生内容都会删除，不可恢复。` }))) return;
   try {
     await api(`/api/tasks/${state.taskId}`, { method: "DELETE" });
     toast("档案已删除");
-    showHome(); fetchTasks();
+    showHome(); resetPlayer(); fetchTasks();
   } catch (e) { toast("删除失败:" + e.message); }
 });
 function pollPolish() {
@@ -1067,7 +1140,7 @@ async function testSettings(fetchModels) {
     const r = await api("/api/settings/test", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ llm_base_url: $("#set-base").value.trim(), llm_api_key: $("#set-key").value.trim() }) });
     if (!r.ok) { setSetResult(false, "连接失败:" + r.error); return; }
-    setSetResult(true, `连接成功,共 ${r.models.length} 个可用模型`);
+    setSetResult(true, `连接成功，共 ${r.models.length} 个可用模型`);
     if (fetchModels) { const dl = $("#model-list"); dl.innerHTML = ""; for (const m of r.models) { const o = document.createElement("option"); o.value = m; dl.appendChild(o); } toast("模型列表已更新"); }
   } catch (e) { setSetResult(false, "测试失败:" + e.message); }
 }
@@ -1157,7 +1230,7 @@ async function openMindmap(regen = false) {
   }
   try {
     const r = await api(`/api/tasks/${state.taskId}/mindmap${regen ? "?regen=true" : ""}`, { method: "POST" });
-    if (r.queued) { toast("脑图任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
+    if (r.queued) { toast("脑图任务已开始，完成后角标提醒", 4000); startDerivPoll(); return; }
     mmTree = r; state.seenMindmap = true; updateDerivBadges();
     $("#mm-overlay").hidden = false; mmCollapsed.clear(); renderMindmap(); mmFit(); mmSetStatus(MM_HINT);
   } catch (e) { toast(/生成中/.test(e.message) ? e.message : "脑图失败:" + e.message, 5000); }
@@ -1237,7 +1310,7 @@ function renderEssay(text) {
 async function openEssay(regen = false) {
   try {
     const r = await api(`/api/tasks/${state.taskId}/essay${regen ? "?regen=true" : ""}`, { method: "POST" });
-    if (r.queued) { toast("随笔任务已开始,完成后角标提醒", 4000); startDerivPoll(); return; }
+    if (r.queued) { toast("随笔任务已开始，完成后角标提醒", 4000); startDerivPoll(); return; }
     state.seenEssay = true; updateDerivBadges();
     $("#essay-overlay").hidden = false; renderEssay(r.essay); essaySetStatus("");
   } catch (e) { toast(/生成中/.test(e.message) ? e.message : "随笔失败:" + e.message, 5000); }
@@ -1312,21 +1385,69 @@ async function exportVisualHTML(html, title) {
   const ctx = c.getContext("2d");
   ctx.scale(2, 2); ctx.fillStyle = "#faf8f5"; ctx.fillRect(0, 0, 800, h);
   ctx.drawImage(img, 0, 0, 800, h);
+  const px = ctx.getImageData(0, 0, c.width, c.height).data;
+  let ink = 0;
+  for (let i = 0; i < px.length; i += 4000) {
+    if (px[i] < 244 || px[i + 1] < 242 || px[i + 2] < 240) {
+      ink++;
+      if (ink > 12) break;
+    }
+  }
+  if (!ink) throw new Error("画布为空");
   const a = document.createElement("a");
   a.download = `${(title || "视觉化").replace(/[\\/:*?"<>|]/g, "_")}.png`;
   a.href = c.toDataURL("image/png"); a.click();
   toast("已导出 PNG");
 }
+function downloadVisualHTML(html, title) {
+  const blob = new Blob([visualFrameDoc(html)], { type: "text/html;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(title || "视觉化").replace(/[\\/:*?"<>|]/g, "_")}.html`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  toast("PNG 导出失败，已下载 HTML", 5000);
+}
+async function loadVisualFull(v, taskId = state.taskId) {
+  if (visualHTMLOf(v) || !v.has_html) return v;
+  try {
+    const full = await api(`/api/tasks/${taskId}/visuals/${v.id}`);
+    v.spec = full.spec || v.spec;
+    v.has_html = false;
+  } catch {}
+  return v;
+}
+let visThumbObserver = null;
+async function mountVisualThumb(item, v) {
+  const thumb = item.querySelector(".vis-thumb");
+  if (!thumb || thumb.dataset.mounted) return;
+  thumb.dataset.mounted = "1";
+  await loadVisualFull(v);
+  const html = visualHTMLOf(v);
+  if (html) mountVisualHTML(thumb, html, true);
+  else thumb.innerHTML = visualSVG(v.spec);
+}
 function visualItemEl(v, taskId, onDelete) {
   const item = document.createElement("div"); item.className = "vis-item";
+  item._vis = v;
   item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
     + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span>`
     + `<button class="vis-del" title="删除"><svg class="icon icon-14"><use href="#i-close"/></svg></button></div>`
     + `<div class="vis-thumb"></div>`;
-  const thumb = item.querySelector(".vis-thumb");
-  const html = visualHTMLOf(v);
-  if (html) mountVisualHTML(thumb, html, true);
-  else thumb.innerHTML = visualSVG(v.spec);
+  if ("IntersectionObserver" in window) {
+    if (!visThumbObserver) {
+      visThumbObserver = new IntersectionObserver(entries => {
+        for (const en of entries) {
+          if (!en.isIntersecting) continue;
+          visThumbObserver.unobserve(en.target);
+          mountVisualThumb(en.target, en.target._vis);
+        }
+      }, { rootMargin: "300px" });
+    }
+    visThumbObserver.observe(item);
+  } else {
+    mountVisualThumb(item, v);
+  }
   item.addEventListener("click", () => openVisual(v, taskId));
   item.querySelector(".vis-del").addEventListener("click", async e => {
     e.stopPropagation();
@@ -1341,10 +1462,11 @@ function visualItemEl(v, taskId, onDelete) {
 }
 function renderVisualList() {
   const box = $("#visual-list"); if (!box) return;
+  if (visThumbObserver) { visThumbObserver.disconnect(); visThumbObserver = null; }
   const cnt = $("#visual-count");
   if (cnt) cnt.textContent = state.visuals.length ? String(state.visuals.length) : "";
   if (!state.visuals.length) {
-    box.innerHTML = '<div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片,<br>或在阅读模式下选中一段文字单独视觉化。</div>';
+    box.innerHTML = '<div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片，<br>或在阅读模式下选中一段文字单独视觉化。</div>';
     return;
   }
   box.innerHTML = "";
@@ -1357,22 +1479,23 @@ function renderVisualList() {
 }
 async function loadVisuals() {
   try {
-    const r = await api(`/api/tasks/${state.taskId}/visuals`);
+    const r = await api(`/api/tasks/${state.taskId}/visuals?meta=1`);
     state.visuals = r.visuals || [];
   } catch { state.visuals = []; }
   renderVisualList();
   updateDerivBadges();
 }
 let currentVisual = null;
-function openVisual(v, taskId = state.taskId) {
+async function openVisual(v, taskId = state.taskId) {
   currentVisual = { ...v, _taskId: taskId };
+  await loadVisualFull(currentVisual, taskId);
   const isSel = v.kind === "selection";
   $("#visual-kind").textContent = isSel && Number.isInteger(v.start)
     ? `节选 · 第 ${v.start + 1}–${v.end + 1} 句` : (isSel ? "节选" : "全文");
   $("#visual-full").hidden = !isSel || taskId !== state.taskId;
-  const html = visualHTMLOf(v);
+  const html = visualHTMLOf(currentVisual);
   if (html) mountVisualHTML($("#visual-body"), html);
-  else $("#visual-body").innerHTML = visualSVG(v.spec);
+  else $("#visual-body").innerHTML = visualSVG(currentVisual.spec);
   $("#visual-overlay").hidden = false;
 }
 $("#visual-close").addEventListener("click", () => ($("#visual-overlay").hidden = true));
@@ -1383,7 +1506,10 @@ $("#visual-full").addEventListener("click", () => {
 $("#visual-png").addEventListener("click", async () => {
   if (currentVisual && visualHTMLOf(currentVisual)) {
     try { await exportVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
-    catch (e) { toast("导出失败:" + e.message, 4000); }
+    catch (e) {
+      try { downloadVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
+      catch { toast("导出失败:" + e.message, 4000); }
+    }
     return;
   }
   const svg = $("#visual-body svg"); if (!svg) return;
@@ -1406,7 +1532,7 @@ $("#visual-regen").addEventListener("click", async () => {
   if (!currentVisual) return;
   try {
     await api(`/api/tasks/${currentVisual._taskId}/visuals/${currentVisual.id}/regen`, { method: "POST" });
-    toast("已开始重新生成,完成后角标提醒", 4000);
+    toast("已开始重新生成，完成后角标提醒", 4000);
     $("#visual-overlay").hidden = true;
     if (currentVisual._taskId === state.taskId) startDerivPoll();
   } catch (e) { toast(/生成中/.test(e.message) ? e.message : "重新生成失败:" + e.message, 5000); }
@@ -1417,7 +1543,7 @@ async function requestVisual(body) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    toast("视觉化任务已开始,完成后角标提醒", 4000);
+    toast("视觉化任务已开始，完成后角标提醒", 4000);
     startDerivPoll();
   } catch (e) { toast(/生成中/.test(e.message) ? e.message : "视觉化失败:" + e.message, 5000); }
 }
@@ -1450,7 +1576,7 @@ function jobsOf(t) {
   if (t.visual_status === "running") push("i-visual", "视觉化", "running", "生成中", { canPause: false });
   else if (t.visual_status === "error") push("i-visual", "视觉化", "error", t.visual_error);
   if (t.burn_status === "running") push("i-film", "字幕封装", "running", "正在封装");
-  else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
+  else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成，待保存", { path: t.burned_path });
   else if (t.burn_status === "error") push("i-film", "字幕封装", "error", t.burn_error);
   else if (t.burn_status === "cancelled") push("i-film", "字幕封装", "cancelled", "已终止");
   return out;
@@ -1518,7 +1644,12 @@ function renderJobs() {
   }
 }
 async function jobPause(id, paused) { try { await api(`/api/tasks/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused }) }); await fetchTasks(); renderJobs(); toast(paused ? "已暂停" : "已继续"); } catch (e) { toast("操作失败:" + e.message); } }
-async function jobCancel(id) { if (!confirm("终止任务?进行中的工作会立刻停止并丢弃结果。")) return; try { await api(`/api/tasks/${id}/cancel`, { method: "POST" }); await fetchTasks(); renderJobs(); } catch (e) { toast("终止失败:" + e.message); } }
+async function jobCancel(id) {
+  if (!(await askConfirm({ title: "终止任务", okText: "终止",
+    text: "终止任务？进行中的工作会立刻停止并丢弃结果。" }))) return;
+  try { await api(`/api/tasks/${id}/cancel`, { method: "POST" }); await fetchTasks(); renderJobs(); }
+  catch (e) { toast("终止失败:" + e.message); }
+}
 function updateFab() {
   const jobs = allJobs(), running = jobs.filter(j => j.state === "running").length, awaiting = jobs.filter(j => j.state === "await").length;
   const fab = $("#job-fab"); fab.hidden = !(running || awaiting);
@@ -1574,7 +1705,7 @@ $("#clear-confirm").addEventListener("click", async () => {
     const excl = state.taskId ? `&exclude=${encodeURIComponent(state.taskId)}` : "";
     const r = await api(`/api/tasks?before_days=${clearDays}${excl}`, { method: "DELETE" });
     $("#clear-overlay").hidden = true;
-    const keep = r.skipped ? `,保留运行中 ${r.skipped} 条` : "";
+    const keep = r.skipped ? `，保留运行中 ${r.skipped} 条` : "";
     toast(`已清除 ${r.records ?? r.removed} 条记录${keep}`, 4000);
     await loadHistory(); await fetchTasks(); renderJobs();
   } catch (err) { toast("清除失败:" + err.message, 5000); }
@@ -1613,7 +1744,7 @@ function saveChatLog() {
       const m = html.match(/app\.js\?v=(\d+)/);
       if (m && m[1] !== cur) {
         window.__assetHinted = true;
-        toast("界面已更新,刷新页面后生效", 8000);
+        toast("界面已更新，刷新页面后生效", 8000);
       }
     } catch {}
   }, 60000);

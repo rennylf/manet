@@ -551,6 +551,7 @@ body {
 .clear-days { display: flex; width: 100%; margin-top: 14px; }
 .clear-days button { flex: 1; padding: 6px 0; font-size: 12.5px; }
 #clear-estimate { margin-top: 12px; }
+#confirm-text { white-space: pre-line; }
 .btn.ghost.danger:hover { background: #F6EDEA; border-color: #D8B4A8; color: var(--danger); }
 [data-theme="night"] .btn.ghost.danger { border-color: #5A3A32; }
 [data-theme="night"] .btn.ghost.danger:hover { background: #3A2A25; border-color: #6B453A; }
@@ -708,6 +709,7 @@ body {
   border: 1px solid var(--border); border-radius: 3px; }
 .visual-html iframe { display: block; width: 800px; height: 800px; border: 0;
   transform-origin: top left; background: #FAF8F5; }
+.visual-html.thumb { max-height: 420px; }
 .visual-html.thumb iframe { pointer-events: none; }
 
 /* ============ 任务中心:历史/筛选/详情 ============ */

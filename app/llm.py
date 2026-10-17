@@ -42,7 +42,7 @@ def _check_job(check) -> None:
 def _chat(messages: list[dict], temperature: float = 0.3,
           timeout: float = 120, max_retries: int = 3,
           base_url: str | None = None, api_key: str | None = None,
-          model: str | None = None) -> str:
+          model: str | None = None, max_tokens: int | None = None) -> str:
     """调用 OpenAI 兼容端点。对网络抖动/限流/5xx 自动重试(指数退避)。
 
     base_url/api_key/model 可覆盖全局配置(翻译专用本地端点用)。
@@ -54,6 +54,8 @@ def _chat(messages: list[dict], temperature: float = 0.3,
     url = f"{eff_base.rstrip('/')}/chat/completions"
     payload = {"model": model or config.LLM_MODEL, "messages": messages,
                "temperature": temperature}
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
     headers = {"Authorization": f"Bearer {api_key or config.LLM_API_KEY}"}
     last_err = "未知错误"
     for attempt in range(max_retries):
@@ -758,6 +760,14 @@ def _clean_visual(spec) -> dict:
     }
 
 
+def _guess_html_title(html: str) -> str:
+    m = re.search(r"font-size\s*:\s*(?:2[12]|1[89])px[^>]*>\s*([^<]{2,40}?)\s*<", html)
+    if m:
+        return _vtxt(m.group(1), 40)
+    plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).strip()
+    return _vtxt(plain, 22) or "视觉化"
+
+
 def visualize(text: str) -> dict:
     """把整篇文本或节选整理成信息图(内联 CSS 的 HTML,前端 iframe 渲染)。"""
     text = (text or "").strip()
@@ -766,8 +776,17 @@ def visualize(text: str) -> dict:
     out = _chat([
         {"role": "system", "content": "你是信息设计师,只输出 JSON。"},
         {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:20000])},
-    ], temperature=0.4, timeout=240)
-    return _clean_visual(_extract_json(out))
+    ], temperature=0.4, timeout=240, max_tokens=8000)
+    try:
+        spec = _extract_json(out)
+    except LLMError:
+        # 模型偶尔直接吐 HTML 片段:清洗后仍然可用
+        clean = _sanitize_visual_html(out)
+        text_len = len(re.sub(r"<[^>]+>", "", clean))
+        if len(clean) >= 300 and text_len >= 80 and ("<div" in clean or "<table" in clean):
+            return {"title": _guess_html_title(clean), "kicker": "", "html": clean}
+        raise
+    return _clean_visual(spec)
 
 
 def _entries(v) -> list[dict]:

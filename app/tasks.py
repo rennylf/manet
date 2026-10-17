@@ -141,48 +141,93 @@ def list_folders() -> list[dict]:
         return [dict(f) for f in sorted(_folders, key=lambda f: f["created_at"])]
 
 
+def _folder_key(name: str) -> str:
+    return _safe_name(name or "", "未命名文件夹").casefold()
+
+
 def create_folder(name: str) -> dict:
-    folder = {"id": uuid.uuid4().hex[:8], "name": name.strip()[:40],
-              "created_at": time.time()}
+    clean = name.strip()[:40]
+    if not clean:
+        raise ValueError("文件夹名称不能为空")
     with _lock:
+        if any(_folder_key(f["name"]) == _folder_key(clean) for f in _folders):
+            raise ValueError("已有同名文件夹")
+        folder = {"id": uuid.uuid4().hex[:8], "name": clean,
+                  "created_at": time.time()}
         _folders.append(folder)
         _persist_folders()
     return folder
 
 
 def rename_folder(folder_id: str, name: str):
+    clean = name.strip()[:40]
+    if not clean:
+        raise ValueError("文件夹名称不能为空")
     with _lock:
-        for f in _folders:
-            if f["id"] == folder_id:
-                f["name"] = name.strip()[:40]
-                for t in _tasks.values():       # 磁盘目录跟随档案文件夹改名
-                    if t.get("folder") == folder_id:
-                        _sync_media_path(t)
-                _persist_folders()
-                _persist(force=True)
-                return
-    raise KeyError(folder_id)
+        target = next((f for f in _folders if f["id"] == folder_id), None)
+        if target is None:
+            raise KeyError(folder_id)
+        if any(f["id"] != folder_id and _folder_key(f["name"]) == _folder_key(clean)
+               for f in _folders):
+            raise ValueError("已有同名文件夹")
+        old_name = target["name"]
+        target["name"] = clean
+        moved: list[tuple[dict, str, str]] = []
+        for t in _tasks.values():       # 磁盘目录跟随档案文件夹改名
+            if t.get("folder") == folder_id:
+                before, before_name = t.get("media"), t.get("filename")
+                if _sync_media_path(t):
+                    moved.append((t, before, before_name))
+                else:
+                    target["name"] = old_name
+                    for tt, old_media, old_filename in moved:
+                        _rollback_media(tt, old_media, old_filename)
+                    _persist_folders()
+                    _persist(force=True)
+                    raise ValueError("无法重命名媒体文件,文件夹未改名")
+        _persist_folders()
+        _persist(force=True)
 
 
 def delete_folder(folder_id: str):
     with _lock:
         global _folders
-        _folders = [f for f in _folders if f["id"] != folder_id]
+        target = next((f for f in _folders if f["id"] == folder_id), None)
+        if target is None:
+            raise KeyError(folder_id)
+        moved: list[tuple[dict, str, str]] = []
         for t in _tasks.values():       # 夹内任务回到根目录
             if t.get("folder") == folder_id:
+                before, before_name = t.get("media"), t.get("filename")
                 t["folder"] = None
-                _sync_media_path(t)
+                if _sync_media_path(t):
+                    moved.append((t, before, before_name))
+                else:
+                    t["folder"] = folder_id
+                    for tt, old_media, old_filename in moved:
+                        tt["folder"] = folder_id
+                        _rollback_media(tt, old_media, old_filename)
+                    _persist(force=True)
+                    raise ValueError("无法移动媒体文件,文件夹未删除")
+        _folders = [f for f in _folders if f["id"] != folder_id]
         _persist_folders()
         _persist(force=True)
 
 
 # ---- 媒体文件:磁盘上按「档案文件夹 / 标题.扩展名」存放(本地优先) ----
 _BAD_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *{f"COM{i}" for i in range(1, 10)}, *{f"LPT{i}" for i in range(1, 10)},
+}
 
 
 def _safe_name(name: str, fallback: str = "未命名") -> str:
     name = _BAD_NAME.sub("_", (name or "").strip()).strip(" .")
-    name = re.sub(r"\s+", " ", name)[:80].strip()
+    name = re.sub(r"\s+", " ", name)[:60].strip(" .")
+    if name and (name.upper() in _RESERVED_NAMES
+                 or name.upper().split(".")[0] in _RESERVED_NAMES):
+        name = "_" + name                      # Windows 保留设备名
     return name or fallback
 
 
@@ -203,26 +248,61 @@ def _unique_path(path: Path) -> Path:
     return path.with_name(f"{path.stem}-{uuid.uuid4().hex[:4]}{path.suffix}")
 
 
-def _sync_media_path(task: dict, title: str | None = None):
-    """把媒体文件重命名/移动到「档案文件夹/标题.扩展名」,并回写任务记录。"""
-    media = task.get("media")
-    if not media:
+def _rollback_media(task: dict, old_media: str | None, old_filename: str | None):
+    cur = task.get("media")
+    if old_media and cur and cur != old_media:
+        p = Path(cur)
+        if p.exists():
+            try:
+                p.rename(old_media)
+            except OSError:
+                log.exception("回滚媒体文件名失败 task=%s", task.get("id"))
+    task["media"] = old_media
+    task["filename"] = old_filename
+
+
+def _sync_burned(task: dict, name: str):
+    """导出视频随标题改名(仍在 data/exports 下)。"""
+    burned = task.get("burned_path")
+    if not burned:
         return
-    src = Path(media)
+    src = Path(burned)
     if not src.exists():
         return
-    name = _safe_name(title or _display_title(task), task.get("id", "未命名"))
-    dst = _folder_dir(task.get("folder")) / f"{name}{src.suffix.lower()}"
+    dst = EXPORT_DIR / f"{name}_字幕{src.suffix.lower()}"
+    if src.resolve() == dst.resolve():
+        return
     try:
-        if src.resolve() == dst.resolve():
-            return
-        dst.parent.mkdir(parents=True, exist_ok=True)
         dst = _unique_path(dst)
         src.rename(dst)
-        task["media"] = str(dst)
-        task["filename"] = dst.name
+        task["burned_path"] = str(dst)
     except OSError:
-        log.exception("同步媒体文件名失败 task=%s", task.get("id"))
+        log.exception("同步导出视频名失败 task=%s", task.get("id"))
+
+
+def _sync_media_path(task: dict, title: str | None = None) -> bool:
+    """把媒体文件重命名/移动到「档案文件夹/标题.扩展名」,并回写任务记录。
+
+    返回 False 表示磁盘操作失败,调用方应回滚标题/文件夹。
+    """
+    name = _safe_name(title or _display_title(task), task.get("id", "未命名"))
+    media = task.get("media")
+    if media:
+        src = Path(media)
+        if src.exists():
+            dst = _folder_dir(task.get("folder")) / f"{name}{src.suffix.lower()}"
+            try:
+                if src.resolve() != dst.resolve():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    dst = _unique_path(dst)
+                    src.rename(dst)
+                    task["media"] = str(dst)
+                    task["filename"] = dst.name
+            except OSError:
+                log.exception("同步媒体文件名失败 task=%s", task.get("id"))
+                return False
+    _sync_burned(task, name)
+    return True
 
 
 def move_task(task_id: str, folder_id: str | None):
@@ -232,16 +312,29 @@ def move_task(task_id: str, folder_id: str | None):
             raise KeyError(task_id)
         if folder_id is not None and not any(f["id"] == folder_id for f in _folders):
             raise KeyError(folder_id)
+        old_folder, old_media, old_filename = task.get("folder"), task.get("media"), task.get("filename")
         task["folder"] = folder_id
-        _sync_media_path(task)
+        if not _sync_media_path(task):
+            task["folder"] = old_folder
+            _rollback_media(task, old_media, old_filename)
+            _persist(force=True)
+            raise ValueError("无法移动媒体文件,档案位置未改变")
         _persist(force=True)
+
+
+def _task_busy(t: dict) -> bool:
+    return (t.get("status") in ("queued", "transcribing")
+            or any(t.get(field) == "running" for field in _JOB_FIELD.values()))
 
 
 def delete_task(task_id: str):
     with _lock:
-        task = _tasks.pop(task_id, None)
+        task = _tasks.get(task_id)
         if task is None:
             raise KeyError(task_id)
+        if _task_busy(task):
+            raise ValueError("档案正在处理中,请先终止任务")
+        _tasks.pop(task_id, None)
         _persist(force=True)
     # 录音 + 全部衍生文件(转写/解读/脑图/随笔/译文/批注/问答/视觉化/封装)
     paths = [Path(task["media"]), Path(task.get("burned_path") or "")]
@@ -390,7 +483,11 @@ def _log_run(task_id: str, kind: str):
 
 def list_history() -> list[dict]:
     with _lock:
-        items = _history_load()
+        items = [dict(h) for h in _history_load()]
+        titles = {tid: _display_title(t) for tid, t in _tasks.items()}
+    for h in items:                       # 档案改名后历史标题跟随
+        if h.get("task_id") in titles:
+            h["title"] = titles[h["task_id"]]
     return sorted(items, key=lambda x: x.get("at", 0), reverse=True)
 
 
@@ -406,6 +503,7 @@ def create_task(filename: str, tmp_path: Path, language: str | None,
         _tasks[task_id] = {
             "id": task_id,
             "filename": saved_path.name,
+            "original_filename": filename,
             "status": "queued",          # queued → transcribing → done / error
             "stage": "排队中",
             "language": language,
@@ -616,9 +714,13 @@ def next_ai_title(task_id: str) -> str:
         task = _tasks.get(task_id)
         if task is None:
             raise KeyError(task_id)
+        old_media, old_filename = task.get("media"), task.get("filename")
+        if not _sync_media_path(task, pick):    # AI 新标题必须同步真实文件名
+            _rollback_media(task, old_media, old_filename)
+            _persist(force=True)
+            raise ValueError("无法重命名媒体文件,标题未更新")
         task.update(ai_title=pick[:120], ai_title_pool=pool,
                     ai_title_used=used + [pick])
-        _sync_media_path(task, pick)         # AI 新标题同步真实文件名
         _persist(force=True)
     return pick
 
@@ -641,13 +743,22 @@ def list_tasks() -> list[dict]:
 
 
 def set_title(task_id: str, title: str):
-    """用户自定义标题(优先级最高)。"""
+    """用户自定义标题(优先级最高),并同步真实文件名。"""
     with _lock:
         task = _tasks.get(task_id)
         if task is None:
             raise KeyError(task_id)
-        task["custom_title"] = title.strip()[:120]
-        _sync_media_path(task, task["custom_title"])
+        if task.get("status") in ("queued", "transcribing"):
+            raise ValueError("转写进行中不能改名")
+        clean = title.strip()[:120]
+        old_title = task.get("custom_title")
+        old_media, old_filename = task.get("media"), task.get("filename")
+        task["custom_title"] = clean
+        if not _sync_media_path(task, clean):
+            task["custom_title"] = old_title
+            _rollback_media(task, old_media, old_filename)
+            _persist(force=True)
+            raise ValueError("无法重命名媒体文件,标题未修改")
         _persist(force=True)
 
 
@@ -877,7 +988,7 @@ def _run_burn(task_id: str):
                                          encoding="utf-8", dir="/tmp") as f:
             f.write(tr.build_srt(data["sentences"], zh, mode))
             srt = f.name
-        out = EXPORT_DIR / f"{task_id}_subbed.{container}"
+        out = EXPORT_DIR / f"{_safe_name(_display_title(task))}_字幕.{container}"
         label = {"orig": "原文", "zh": "中文", "both": "双语"}[mode]
         cmd = [tr.FFMPEG, "-y", "-i", task["media"], "-i", srt,
                "-map", "0:v:0", "-map", "0:a?", "-map", "1:0",
@@ -1093,9 +1204,7 @@ def clear_before(days: int, exclude: set[str] | None = None) -> dict:
         for tid, t in _tasks.items():
             if t.get("created_at", 0) >= cutoff:
                 continue
-            busy = (tid in skip
-                    or t.get("status") in ("queued", "transcribing")
-                    or any(t.get(field) == "running" for field in _JOB_FIELD.values()))
+            busy = tid in skip or _task_busy(t)
             if busy:
                 kept += 1
             else:
@@ -1227,7 +1336,20 @@ def _migrate_history():
             _history_save([h for h in items if h.get("id") not in drop])
 
 
+def _migrate_media_layout():
+    """启动时把存量媒体迁移到「档案文件夹/标题.扩展名」,已符合的跳过。"""
+    with _lock:
+        for t in _tasks.values():
+            before = t.get("media")
+            if not _sync_media_path(t):
+                log.warning("存量媒体归档失败 task=%s", t.get("id"))
+            elif t.get("media") != before:
+                log.info("存量媒体已归档 task=%s -> %s", t.get("id"), t.get("media"))
+        _persist(force=True)
+
+
 _load()
+_migrate_media_layout()
 _seed_history()
 _migrate_history()
 threading.Thread(target=_worker, args=("heavy",), daemon=True).start()
