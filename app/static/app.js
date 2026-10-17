@@ -1486,5 +1486,23 @@ function saveChatLog() {
   }).catch(() => {});
 }
 
+/* 长时间开着的页面:静态资源更新后提示刷新,避免旧脚本渲染新数据 */
+(function assetVersionWatch() {
+  const src = document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "";
+  const cur = (src.match(/[?&]v=(\d+)/) || [])[1];
+  if (!cur) return;
+  setInterval(async () => {
+    if (window.__assetHinted) return;
+    try {
+      const html = await (await fetch("/", { cache: "no-store" })).text();
+      const m = html.match(/app\.js\?v=(\d+)/);
+      if (m && m[1] !== cur) {
+        window.__assetHinted = true;
+        toast("界面已更新,刷新页面后生效", 8000);
+      }
+    } catch {}
+  }, 60000);
+})();
+
 /* ================= 启动 ================= */
 setReading(state.reading); applyTheme(); fetchTasks(); fetchFolders();
