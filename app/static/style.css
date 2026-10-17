@@ -703,6 +703,12 @@ body {
 .visual-body { flex: 1; min-height: 0; overflow: auto; padding: 18px; background: var(--paper2); border-radius: 0 0 5px 5px; }
 .visual-body svg { display: block; width: 100%; height: auto; max-width: 840px; margin: 0 auto;
   border: 1px solid var(--border); background: #F7F5F0; }
+/* 技能路线:模型输出内联 CSS 的 HTML,iframe 内渲染 */
+.visual-html { position: relative; width: 100%; overflow: hidden; background: #FAF8F5;
+  border: 1px solid var(--border); border-radius: 3px; }
+.visual-html iframe { display: block; width: 800px; height: 800px; border: 0;
+  transform-origin: top left; background: #FAF8F5; }
+.visual-html.thumb iframe { pointer-events: none; }
 
 /* ============ 任务中心:历史/筛选/详情 ============ */
 .jobs-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 16px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }

@@ -3,9 +3,11 @@
 对接任意 OpenAI 兼容端点(默认本机 Ollama)。
 长转写文本自动走 map-reduce:分段总结 → 汇总。
 """
+import html as _html
 import json
 import re
 import time
+from html.parser import HTMLParser
 
 import httpx
 
@@ -621,28 +623,38 @@ def suggest_titles(sentences: list[dict], exclude: list[str] | None = None,
 _TS_HEAD_RE = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[—\-–:：、.]?\s*(.*)$")
 
 
-VISUAL_PROMPT = """你是资深信息设计师。把下面文本整理成一张信息图的结构化数据,只输出 JSON。
-输出结构:
-{"title":"", "kicker":"", "blocks":[...], "footer":""}
+VISUAL_PROMPT = """你是资深信息设计师。把文本做成一张「总→分→总」结构的信息图。
+只输出 JSON:{"title":"标题(≤22字)","kicker":"副标题(≤24字)","html":"<div>…</div>"}
 
-先判断内容结构,再选择 2~5 个块,按版面顺序排列(总→分→总):
-1) 顶部概览(可选,放最前):{"type":"highlights","items":["一句结论", ...]} 2~4 条
-2) 主体(按内容真实结构选 1~3 个):
-   - 并列主题:{"type":"sections","items":[{"label":"分组名","points":["要点", ...]}]} 长文本 3~5 组、每组 3~5 条
-   - 正反对照:{"type":"compare","left":{"label":"","tone":"positive","items":["..."]},"right":{"label":"","tone":"negative","items":["..."]}}
-   - 二维交叉(仅当文本确有两条独立的判断维度):{"type":"matrix","x":{"label":"横轴","low":"低","high":"高"},"y":{"label":"纵轴","low":"低","high":"高"},"cells":[{"title":"","desc":"","action":"","tone":"positive|neutral|negative"}, 共 4 个]} 顺序:左上、右上、左下、右下
-   - 有先后的步骤:{"type":"process","steps":[{"label":"","desc":""}]} 2~4 步
-   - 关键数字:{"type":"stats","items":[{"value":"","label":""}]} 2~4 个
-   - 值得原样引用的句子:{"type":"quote","text":"","source":""}
-3) 结尾(建议):{"type":"takeaway","title":"结论","text":"一句话"}
+【硬约束】
+- html 是 800px 宽的单个 HTML 片段,所有 CSS 必须写在 style="" 内。
+- 只用 <table> 布局;禁止 flex/grid/绝对定位;禁用 <style><script><img><a> 与外部字体/资源/emoji。
+- 字体栈:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif。
+- 页面底色 #faf8f5;白卡 #fff 配 1px #e0d8c8;正文 12-13px,行高 1.6-1.8;标题 21-22px / 700 / 字距 2。
 
-要求:
-- 内容必须来自文本,不编造;标题 ≤22 字,摘要 ≤30 字,每条要点 ≤45 字,引文 ≤80 字。
-- 长文本要覆盖全文的主要脉络与转折,不要只取开头;次要内容可合并,重要内容不能遗漏。
-- 不要把所有内容都塞进 sections:有对立就用 compare,有步骤就用 process,有明确数字就用 stats。
-- 概览条写整篇的结论,不要复述章节标题。
-- footer 用一句话点出全文逻辑(≤30 字)。
-- 使用与文本相同的语言。只输出 JSON。
+【色板(每图 ≤4 个色系)】
+金棕 #b08840 / #d4a76a;蓝 #4a6fa5;绿 #5a8a6a / #3d7050(正向);红橙 #c07050 / #b04830(负向);暖棕 #8b7355。
+主文字 #1f1f1f;正文 #888;次要 #a09080;页脚 #c0b090。
+
+【骨架(必须)】
+1 居中标题 + 副标题(13px #a09080)
+2 顶层概览条(2-4 个 pill 或阶段卡)
+3 主体:按内容从下列版式中选 1-3 个,允许嵌套:
+   - 流程:横向阶段条 ▸ + 纵向详情
+   - 2×2 矩阵:table 四象限;每象限「名 + 状态 + 判语 + 行动」四层;双高=浅绿 #f2f7f2 / 边框 #3d7050,问题=浅红 #fdf5f3 / 边框 #b04830
+   - 对比:左右 47% + 6% + 47%;绿顶边 3px / ✓,红橙顶边 3px / ✗
+   - 场景卡:等宽三列,24px 编号徽章
+   - 流水线:数据源 → 处理 → 产出
+   - 表格:斑马纹 #fff / #fdfaf7,表头 #f5f0e8,正向值绿、负向值红橙
+   - 分支:主路径实线 #d4a76a,分支虚线 #d0c8b8
+4 结论 callout(浅棕底 #faf5ef + 1.5px #d4a76a)
+5 页脚总结行(11px #c0b090 居中,一句话点出核心逻辑)
+
+【写作】
+- 覆盖全文主要脉络与转折,不要只取开头;不编造。
+- 10 秒看懂全貌,30 秒抓住所有要点;条目用短句,关键数字单独成块。
+- 有对立用对比,有步骤用流程,有二维关系用矩阵,不要把所有内容堆成列表。
+- 使用与文本相同的语言。只输出 JSON,不要 markdown 围栏。
 
 文本:
 {text}"""
@@ -652,138 +664,109 @@ def _vtxt(v, n: int) -> str:
     return str(v or "").strip()[:n]
 
 
-def _vtone(v) -> str:
-    v = str(v or "").strip().lower()
-    return v if v in ("positive", "negative", "neutral") else "neutral"
+# ---- HTML 白名单清洗:只保留排版标签与内联样式 ----
+_ALLOWED_TAGS = {
+    "div", "span", "p", "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+    "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em",
+    "i", "u", "s", "small", "br", "hr", "section", "article", "header", "footer",
+    "figure", "figcaption", "blockquote", "code", "pre", "sup", "sub",
+}
+_DROP_CONTENT = {
+    "script", "style", "iframe", "object", "embed", "link", "meta", "svg", "math",
+    "form", "select", "textarea", "video", "audio", "canvas", "picture",
+}
+_VOID_TAGS = {"br", "hr"}
+_ALLOWED_ATTRS = {"style", "colspan", "rowspan", "align", "valign", "width", "height"}
+
+
+class _VisualHTMLSanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self.skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag in _DROP_CONTENT:
+            self.skip += 1
+            return
+        if tag in ("img", "input", "source", "track"):
+            return
+        if self.skip or tag not in _ALLOWED_TAGS:
+            return
+        safe = []
+        for k, v in attrs:
+            k = k.lower()
+            if k not in _ALLOWED_ATTRS or v is None:
+                continue
+            if k == "style":
+                v = re.sub(r"(?i)url\s*\([^)]*\)", "none", v)
+                v = re.sub(r"(?i)expression\s*\([^)]*\)", "none", v)
+                v = re.sub(r"(?i)@import[^;]*;?", "", v)
+                v = re.sub(r"(?i)position\s*:\s*(fixed|absolute)", "position:static", v)
+                v = re.sub(r"(?i)javascript\s*:", "", v)
+            safe.append(f'{k}="{_html.escape(v, quote=True)}"')
+        self.out.append(f"<{tag}{(' ' + ' '.join(safe)) if safe else ''}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag.lower() not in _VOID_TAGS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag in _DROP_CONTENT:
+            if self.skip:
+                self.skip -= 1
+            return
+        if self.skip or tag not in _ALLOWED_TAGS or tag in _VOID_TAGS:
+            return
+        self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.out.append(_html.escape(data, quote=False))
+
+
+def _sanitize_visual_html(raw: str) -> str:
+    raw = re.sub(r"^```(?:html)?\s*", "", raw.strip(), flags=re.I)
+    raw = re.sub(r"\s*```$", "", raw)
+    p = _VisualHTMLSanitizer()
+    try:
+        p.feed(raw)
+        p.close()
+    except Exception:  # noqa: BLE001 — 畸形 HTML 尽量保留已解析部分
+        pass
+    return "".join(p.out).strip()
 
 
 def _clean_visual(spec) -> dict:
-    """校验/收敛 AI 输出的语义 blocks;兼容旧的 sections 结构。"""
+    """校验 AI 输出的信息图 HTML(白名单清洗),返回可渲染结构。"""
     if not isinstance(spec, dict):
         raise LLMError("AI 未返回有效的视觉化结构")
-    raw = spec.get("blocks")
-    if not isinstance(raw, list) or not raw:
-        raw = [{"type": "sections", "items": spec.get("sections") or []}]
-    blocks: list[dict] = []
-
-    for b in raw[:6]:
-        if not isinstance(b, dict):
-            continue
-        t = b.get("type")
-
-        if t == "highlights":
-            items = [_vtxt(x, 45) for x in (b.get("items") or []) if _vtxt(x, 45)][:4]
-            if len(items) >= 2:
-                blocks.append({"type": "highlights", "items": items})
-
-        elif t == "sections":
-            secs = []
-            for s in (b.get("items") or [])[:5]:
-                if not isinstance(s, dict):
-                    continue
-                label = _vtxt(s.get("label"), 14)
-                pts = [_vtxt(x, 60) for x in (s.get("points") or s.get("items") or [])
-                       if _vtxt(x, 60)][:5]
-                if label and pts:
-                    secs.append({"label": label, "points": pts})
-            if secs:
-                blocks.append({"type": "sections", "items": secs})
-
-        elif t == "compare":
-            def side(x, tone):
-                if not isinstance(x, dict):
-                    return None
-                label = _vtxt(x.get("label"), 12)
-                items = [_vtxt(i, 45) for i in (x.get("items") or []) if _vtxt(i, 45)][:4]
-                if not label or not items:
-                    return None
-                return {"label": label, "items": items,
-                        "tone": _vtone(x.get("tone") or tone)}
-            left = side(b.get("left"), "positive")
-            right = side(b.get("right"), "negative")
-            if left and right:
-                blocks.append({"type": "compare", "left": left, "right": right})
-
-        elif t == "matrix":
-            cells = []
-            for c in (b.get("cells") or [])[:4]:
-                if not isinstance(c, dict):
-                    continue
-                title = _vtxt(c.get("title"), 14)
-                if not title:
-                    continue
-                cells.append({"title": title,
-                              "desc": _vtxt(c.get("desc"), 50),
-                              "action": _vtxt(c.get("action"), 24),
-                              "tone": _vtone(c.get("tone"))})
-            if len(cells) == 4:
-                x = b.get("x") if isinstance(b.get("x"), dict) else {}
-                y = b.get("y") if isinstance(b.get("y"), dict) else {}
-                blocks.append({
-                    "type": "matrix",
-                    "x": {"label": _vtxt(x.get("label"), 10),
-                          "low": _vtxt(x.get("low"), 8),
-                          "high": _vtxt(x.get("high"), 8)},
-                    "y": {"label": _vtxt(y.get("label"), 10),
-                          "low": _vtxt(y.get("low"), 8),
-                          "high": _vtxt(y.get("high"), 8)},
-                    "cells": cells})
-
-        elif t == "process":
-            steps = []
-            for s in (b.get("steps") or [])[:4]:
-                if not isinstance(s, dict):
-                    continue
-                label = _vtxt(s.get("label"), 14)
-                if label:
-                    steps.append({"label": label, "desc": _vtxt(s.get("desc"), 40)})
-            if len(steps) >= 2:
-                blocks.append({"type": "process", "steps": steps})
-
-        elif t == "stats":
-            items = []
-            for s in (b.get("items") or [])[:4]:
-                if not isinstance(s, dict):
-                    continue
-                value = _vtxt(s.get("value"), 14)
-                label = _vtxt(s.get("label"), 24)
-                if value and label:
-                    items.append({"value": value, "label": label})
-            if len(items) >= 2:
-                blocks.append({"type": "stats", "items": items})
-
-        elif t == "quote":
-            text = _vtxt(b.get("text"), 100)
-            if text:
-                blocks.append({"type": "quote", "text": text,
-                               "source": _vtxt(b.get("source"), 30)})
-
-        elif t == "takeaway":
-            text = _vtxt(b.get("text"), 80)
-            if text:
-                blocks.append({"type": "takeaway",
-                               "title": _vtxt(b.get("title"), 12) or "结论",
-                               "text": text})
-
-    if not blocks:
-        raise LLMError("AI 未返回有效的视觉化结构")
+    raw = spec.get("html") or spec.get("body") or ""
+    if not isinstance(raw, str):
+        raise LLMError("AI 未返回有效的视觉化 HTML")
+    clean = _sanitize_visual_html(raw)
+    text_len = len(re.sub(r"<[^>]+>", "", clean))
+    if len(clean) < 300 or text_len < 80:
+        raise LLMError("AI 返回的信息图内容为空")
     return {
         "title": _vtxt(spec.get("title"), 40) or "未命名",
         "kicker": _vtxt(spec.get("kicker"), 40),
-        "blocks": blocks,
-        "footer": _vtxt(spec.get("footer"), 60),
+        "html": clean,
     }
 
 
 def visualize(text: str) -> dict:
-    """把整篇文本或节选整理成视觉卡片结构(供前端渲染为矢量卡片)。"""
+    """把整篇文本或节选整理成信息图(内联 CSS 的 HTML,前端 iframe 渲染)。"""
     text = (text or "").strip()
     if not text:
         raise LLMError("没有可视觉化的文本")
     out = _chat([
         {"role": "system", "content": "你是信息设计师,只输出 JSON。"},
         {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:20000])},
-    ], temperature=0.4, timeout=180)
+    ], temperature=0.4, timeout=240)
     return _clean_visual(_extract_json(out))
 
 

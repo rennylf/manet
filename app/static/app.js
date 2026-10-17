@@ -1211,14 +1211,80 @@ $("#essay-export-obsidian").addEventListener("click", async () => {
 });
 
 /* ================= 视觉化 ================= */
-/* 服务端只产出结构化 spec,前端按 Manet 规范渲染为矢量卡片(SVG) */
-/* visualSVG 见 visual.js(语义 blocks → SVG 排版引擎) */
+/* 技能路线:AI 直接产出内联 CSS 的 HTML(800px),iframe 预览,foreignObject 导出 PNG。
+ * 旧数据仍走 visual.js 的 SVG 引擎。 */
+const VIS_HTML_W = 800;
+function visualHTMLOf(v) {
+  return v && v.spec && typeof v.spec.html === "string" ? v.spec.html : "";
+}
+function visualFrameDoc(html) {
+  return `<!doctype html><html><head><meta charset="utf-8">` +
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">` +
+    `<style>html,body{margin:0;padding:0;background:#faf8f5}body{width:${VIS_HTML_W}px}</style>` +
+    `</head><body style="width:${VIS_HTML_W}px;margin:0;padding:0;background:#faf8f5">${html}</body></html>`;
+}
+function mountVisualHTML(box, html, thumb = false) {
+  box.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "visual-html" + (thumb ? " thumb" : "");
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-same-origin");
+  frame.setAttribute("scrolling", "no");
+  frame.setAttribute("title", "视觉化");
+  frame.srcdoc = visualFrameDoc(html);
+  wrap.appendChild(frame);
+  box.appendChild(wrap);
+  const fit = () => {
+    let h = 1200;
+    try { h = Math.max(160, frame.contentDocument.body.scrollHeight); } catch {}
+    const k = Math.min(1, (wrap.clientWidth || 300) / VIS_HTML_W);
+    frame.style.height = h + "px";
+    frame.style.transform = `scale(${k})`;
+    wrap.style.height = Math.ceil(h * k) + "px";
+  };
+  frame.addEventListener("load", () => { fit(); requestAnimationFrame(fit); setTimeout(fit, 120); });
+  return frame;
+}
+async function exportVisualHTML(html, title) {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-same-origin");
+  frame.style.cssText = "position:fixed;left:-20000px;top:0;width:800px;height:200px;border:0;";
+  frame.srcdoc = visualFrameDoc(html);
+  const loaded = new Promise(res => frame.addEventListener("load", res, { once: true }));
+  document.body.appendChild(frame);
+  await loaded;
+  await new Promise(r => setTimeout(r, 120));
+  const doc = frame.contentDocument;
+  const h = Math.ceil(doc.body.scrollHeight);
+  const xml = new XMLSerializer().serializeToString(doc.body);
+  frame.remove();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${h}">` +
+    `<foreignObject width="100%" height="100%">${xml}</foreignObject></svg>`;
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  const img = new Image();
+  await new Promise((res, rej) => {
+    img.onload = res; img.onerror = () => rej(new Error("栅格化失败")); img.src = url;
+  });
+  const c = document.createElement("canvas");
+  c.width = 1600; c.height = h * 2;
+  const ctx = c.getContext("2d");
+  ctx.scale(2, 2); ctx.fillStyle = "#faf8f5"; ctx.fillRect(0, 0, 800, h);
+  ctx.drawImage(img, 0, 0, 800, h);
+  const a = document.createElement("a");
+  a.download = `${(title || "视觉化").replace(/[\\/:*?"<>|]/g, "_")}.png`;
+  a.href = c.toDataURL("image/png"); a.click();
+  toast("已导出 PNG");
+}
 function visualItemEl(v, taskId, onDelete) {
   const item = document.createElement("div"); item.className = "vis-item";
   item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
     + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span>`
     + `<button class="vis-del" title="删除"><svg class="icon icon-14"><use href="#i-close"/></svg></button></div>`
-    + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
+    + `<div class="vis-thumb"></div>`;
+  const thumb = item.querySelector(".vis-thumb");
+  const html = visualHTMLOf(v);
+  if (html) mountVisualHTML(thumb, html, true);
+  else thumb.innerHTML = visualSVG(v.spec);
   item.addEventListener("click", () => openVisual(v, taskId));
   item.querySelector(".vis-del").addEventListener("click", async e => {
     e.stopPropagation();
@@ -1262,7 +1328,9 @@ function openVisual(v, taskId = state.taskId) {
   $("#visual-kind").textContent = isSel && Number.isInteger(v.start)
     ? `节选 · 第 ${v.start + 1}–${v.end + 1} 句` : (isSel ? "节选" : "全文");
   $("#visual-full").hidden = !isSel || taskId !== state.taskId;
-  $("#visual-body").innerHTML = visualSVG(v.spec);
+  const html = visualHTMLOf(v);
+  if (html) mountVisualHTML($("#visual-body"), html);
+  else $("#visual-body").innerHTML = visualSVG(v.spec);
   $("#visual-overlay").hidden = false;
 }
 $("#visual-close").addEventListener("click", () => ($("#visual-overlay").hidden = true));
@@ -1270,7 +1338,12 @@ $("#visual-full").addEventListener("click", () => {
   $("#visual-overlay").hidden = true;
   requestVisual({ scope: "full" });
 });
-$("#visual-png").addEventListener("click", () => {
+$("#visual-png").addEventListener("click", async () => {
+  if (currentVisual && visualHTMLOf(currentVisual)) {
+    try { await exportVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
+    catch (e) { toast("导出失败:" + e.message, 4000); }
+    return;
+  }
   const svg = $("#visual-body svg"); if (!svg) return;
   const vb = svg.viewBox.baseVal, W = vb.width, H = vb.height;
   const xml = new XMLSerializer().serializeToString(svg);
