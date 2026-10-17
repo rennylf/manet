@@ -542,6 +542,16 @@ body {
 .job-fab.attention { animation: fab-pulse 1.2s infinite; }
 @keyframes fab-pulse { 50% { box-shadow: 0 0 0 8px rgba(128,107,80,.14); } }
 .jobs-card { width: 520px; }
+
+/* ---------- 清除任务记录 ---------- */
+.modal-overlay.on-top { z-index: 80; }
+.clear-lead { margin: 0; font-size: 13px; line-height: 1.85; color: var(--text); }
+.clear-days { display: flex; width: 100%; margin-top: 14px; }
+.clear-days button { flex: 1; padding: 6px 0; font-size: 12.5px; }
+#clear-estimate { margin-top: 12px; }
+.btn.ghost.danger:hover { background: #F6EDEA; border-color: #D8B4A8; color: var(--danger); }
+[data-theme="night"] .btn.ghost.danger { border-color: #5A3A32; }
+[data-theme="night"] .btn.ghost.danger:hover { background: #3A2A25; border-color: #6B453A; }
 .jobs-list { padding: 8px 12px; overflow-y: auto; }
 .job-row {
   display: flex; align-items: center; gap: 9px; padding: 9px 10px;

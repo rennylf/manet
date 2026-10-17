@@ -185,14 +185,10 @@ def delete_task(task_id: str):
         if task is None:
             raise KeyError(task_id)
         _persist(force=True)
-    for p in [Path(task["media"]),
-              config.RESULT_DIR / f"{task_id}.json",
-              config.RESULT_DIR / f"{task_id}.raw.json",
-              config.RESULT_DIR / f"{task_id}.analysis.json",
-              config.RESULT_DIR / f"{task_id}.mindmap.json",
-              config.RESULT_DIR / f"{task_id}.notes.txt",
-              config.RESULT_DIR / f"{task_id}.translation.json",
-              Path(task.get("burned_path") or "")]:
+    # 录音 + 全部衍生文件(转写/解读/脑图/随笔/译文/批注/问答/视觉化/封装)
+    paths = [Path(task["media"]), Path(task.get("burned_path") or "")]
+    paths += list(config.RESULT_DIR.glob(f"{task_id}.*"))
+    for p in paths:
         try:
             p.unlink(missing_ok=True)
         except OSError:
@@ -908,19 +904,36 @@ def _worker(channel: str):
             q.task_done()
 
 
-def clear_before(days: int) -> int:
-    """删除创建时间早于 days 天的历史记录(跳过正在转写的任务)。"""
+def clear_before(days: int, exclude: set[str] | None = None) -> dict:
+    """清除创建时间早于 days 天的任务记录及其录音/衍生内容。
+
+    只清理不再需要的记录:前台正在使用的任务(exclude)、排队或转写中的任务,
+    以及任一派生任务(标点恢复/翻译/解读/封装/脑图/随笔/视觉化)运行中的任务
+    一律跳过,避免误删正在使用的内容。
+    """
     cutoff = time.time() - days * 86400
+    skip = exclude or set()
+    ids: list[str] = []
+    kept = 0
     with _lock:
-        ids = [tid for tid, t in _tasks.items()
-               if t.get("created_at", 0) < cutoff
-               and t.get("status") not in ("queued", "transcribing")]
+        for tid, t in _tasks.items():
+            if t.get("created_at", 0) >= cutoff:
+                continue
+            busy = (tid in skip
+                    or t.get("status") in ("queued", "transcribing")
+                    or any(t.get(field) == "running" for field in _JOB_FIELD.values()))
+            if busy:
+                kept += 1
+            else:
+                ids.append(tid)
+    removed = 0
     for tid in ids:
         try:
             delete_task(tid)
+            removed += 1
         except Exception:  # noqa: BLE001
-            log.exception("清理历史失败 task=%s", tid)
-    return len(ids)
+            log.exception("清除任务记录失败 task=%s", tid)
+    return {"removed": removed, "skipped": kept}
 
 
 def _recover():

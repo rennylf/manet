@@ -1480,15 +1480,46 @@ async function openJobs() {
     if (!state.histDetail) renderJobs();
   }, 3000);
 }
-$("#jobs-clear").addEventListener("change", async e => {
-  const days = parseInt(e.target.value, 10); e.target.value = "";
-  if (!days) return;
-  if (!confirm(`清理 ${days} 天前的所有记录?将删除这些录音、转写与衍生内容,不可恢复。`)) return;
+let clearDays = 7;
+function clearEstimate() {
+  const cutoff = Date.now() / 1000 - clearDays * 86400;
+  const n = (state.history || []).filter(h => h.created_at < cutoff && h.id !== state.taskId).length;
+  $("#clear-estimate").textContent = n
+    ? `符合条件的历史记录 ${n} 条;当前打开的任务不在其中。`
+    : "没有符合条件的历史记录。";
+  $("#clear-confirm").disabled = n === 0;
+  $("#clear-confirm").textContent = n ? `清除 ${n} 条记录` : "清除记录";
+}
+function openClear() {
+  clearDays = 7;
+  document.querySelectorAll("#clear-days button").forEach(b =>
+    b.classList.toggle("active", b.dataset.days === "7"));
+  clearEstimate();
+  $("#clear-overlay").hidden = false;
+}
+$("#jobs-clear").addEventListener("click", openClear);
+$("#clear-close").addEventListener("click", () => ($("#clear-overlay").hidden = true));
+$("#clear-cancel").addEventListener("click", () => ($("#clear-overlay").hidden = true));
+$("#clear-days").addEventListener("click", e => {
+  const b = e.target.closest("button[data-days]");
+  if (!b) return;
+  clearDays = parseInt(b.dataset.days, 10);
+  document.querySelectorAll("#clear-days button").forEach(x =>
+    x.classList.toggle("active", x === b));
+  clearEstimate();
+});
+$("#clear-confirm").addEventListener("click", async () => {
+  const btn = $("#clear-confirm");
+  btn.disabled = true;
   try {
-    const r = await api(`/api/tasks?before_days=${days}`, { method: "DELETE" });
-    toast(`已清理 ${r.removed} 条记录`, 4000);
+    const excl = state.taskId ? `&exclude=${encodeURIComponent(state.taskId)}` : "";
+    const r = await api(`/api/tasks?before_days=${clearDays}${excl}`, { method: "DELETE" });
+    $("#clear-overlay").hidden = true;
+    const keep = r.skipped ? `,保留运行中 ${r.skipped} 条` : "";
+    toast(`已清除 ${r.removed} 条记录${keep}`, 4000);
     await loadHistory(); await fetchTasks(); renderJobs();
-  } catch (err) { toast("清理失败:" + err.message, 5000); }
+  } catch (err) { toast("清除失败:" + err.message, 5000); }
+  finally { btn.disabled = false; }
 });
 $("#jobs-close").addEventListener("click", () => ($("#jobs-overlay").hidden = true));
 $("#job-fab").addEventListener("click", openJobs);

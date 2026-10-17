@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -400,16 +400,39 @@
     <div class="modal-head">
       <span class="mm-title"><svg class="icon"><use href="#i-tasks"/></svg> 任务</span>
       <div class="spacer"></div>
-      <select id="jobs-clear" class="pb-speed" title="清理历史记录">
-        <option value="">清理历史…</option>
-        <option value="3">清理 3 天前</option>
-        <option value="7">清理 7 天前</option>
-        <option value="30">清理 30 天前</option>
-      </select>
+      <button id="jobs-clear" class="btn ghost sm" title="清除任务记录">
+        <svg class="icon icon-14"><use href="#i-archive"/></svg>清除记录
+      </button>
       <button id="jobs-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div id="jobs-filters" class="jobs-filters"></div>
     <div id="jobs-list" class="jobs-list"></div>
+  </div>
+</div>
+
+<!-- 清除任务记录 -->
+<div id="clear-overlay" class="modal-overlay on-top" hidden>
+  <div class="modal-card" style="width:420px">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use href="#i-archive"/></svg> 清除任务记录</span>
+      <div class="spacer"></div>
+      <button id="clear-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="clear-lead">清除选定时间之前的任务记录，以及这些记录的录音、转写与衍生内容。此操作不可恢复。</p>
+      <div class="seg-ctrl clear-days" id="clear-days">
+        <button data-days="3">3 天前</button>
+        <button data-days="7" class="active">7 天前</button>
+        <button data-days="30">30 天前</button>
+      </div>
+      <p class="muted tiny" id="clear-estimate"></p>
+      <p class="muted tiny">正在使用、排队或运行中的任务会自动保留。</p>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button id="clear-cancel" class="btn ghost">取消</button>
+      <button id="clear-confirm" class="btn ghost danger">清除记录</button>
+    </div>
   </div>
 </div>
 
@@ -488,6 +511,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

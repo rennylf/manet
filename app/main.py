@@ -157,11 +157,15 @@ def api_history():
 
 
 @app.delete("/api/tasks")
-def api_clear_tasks(before_days: int = 0):
-    """清理创建时间早于 N 天的历史记录(3/7/30)。"""
+def api_clear_tasks(before_days: int = 0, exclude: str = ""):
+    """清除创建时间早于 N 天的任务记录(3/7/30)。
+
+    exclude 为逗号分隔的任务 id(前台正在使用的记录),与运行中的任务一并跳过。
+    """
     if before_days <= 0:
         raise HTTPException(400, "before_days 需为正整数")
-    return {"removed": tasks.clear_before(before_days)}
+    skip = {s.strip() for s in exclude.split(",") if s.strip()}
+    return tasks.clear_before(before_days, skip)
 
 
 class RetranscribeReq(BaseModel):
