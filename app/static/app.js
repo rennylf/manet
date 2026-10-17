@@ -1464,7 +1464,7 @@ async function mountVisualThumb(item, v) {
   await loadVisualFull(v);
   const html = visualHTMLOf(v);
   if (html) mountVisualHTML(thumb, html, true);
-  else thumb.innerHTML = visualSVG(v.spec);
+  else thumb.innerHTML = '<div class="empty-hint">此卡片需要重新生成</div>';
 }
 function visualItemEl(v, taskId, onDelete) {
   const item = document.createElement("div"); item.className = "vis-item";
@@ -1534,7 +1534,7 @@ async function openVisual(v, taskId = state.taskId) {
   $("#visual-full").hidden = !isSel || taskId !== state.taskId;
   const html = visualHTMLOf(currentVisual);
   if (html) mountVisualHTML($("#visual-body"), html);
-  else $("#visual-body").innerHTML = visualSVG(currentVisual.spec);
+  else $("#visual-body").innerHTML = '<div class="empty-hint">此卡片需要重新生成</div>';
   $("#visual-overlay").hidden = false;
 }
 $("#visual-close").addEventListener("click", () => ($("#visual-overlay").hidden = true));
@@ -1543,29 +1543,15 @@ $("#visual-full").addEventListener("click", () => {
   requestVisual({ scope: "full" });
 });
 $("#visual-png").addEventListener("click", async () => {
-  if (currentVisual && visualHTMLOf(currentVisual)) {
-    try { await exportVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
-    catch (e) {
-      try { downloadVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
-      catch { toast("导出失败:" + e.message, 4000); }
-    }
+  if (!currentVisual || !visualHTMLOf(currentVisual)) {
+    toast("此卡片需要重新生成后才能导出", 4000);
     return;
   }
-  const svg = $("#visual-body svg"); if (!svg) return;
-  const vb = svg.viewBox.baseVal, W = vb.width, H = vb.height;
-  const xml = new XMLSerializer().serializeToString(svg);
-  const url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2;
-    const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = "#F7F5F0";
-    ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url);
-    const a = document.createElement("a");
-    a.download = `${(currentVisual?.title || "视觉化").replace(/[\\/:*?"<>|]/g, "_")}.png`;
-    a.href = c.toDataURL("image/png"); a.click();
-    toast("已导出 PNG");
-  };
-  img.src = url;
+  try { await exportVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
+  catch (e) {
+    try { downloadVisualHTML(visualHTMLOf(currentVisual), currentVisual.title); }
+    catch { toast("导出失败:" + e.message, 4000); }
+  }
 });
 $("#visual-regen").addEventListener("click", async () => {
   if (!currentVisual) return;

@@ -1,6 +1,6 @@
 """轻量任务队列:单工作线程串行执行(转写是 CPU/GPU 密集,避免并发争抢)。
 
-任务记录持久化到 data/tasks.json,重启服务后历史仍可见。
+任务 / 档案夹 / 执行记录持久化到 data/manet.db,重启服务后仍可见。
 """
 import json
 import logging
@@ -15,7 +15,7 @@ import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from . import config
+from . import config, db
 from . import llm as llm_mod
 from . import transcribe as tr
 
@@ -30,13 +30,11 @@ if not log.handlers:
     log.addHandler(_h)
     log.setLevel(logging.INFO)
 
-_TASKS_FILE = config.DATA_DIR / "tasks.json"
-_FOLDERS_FILE = config.DATA_DIR / "folders.json"
-_HISTORY_FILE = config.DATA_DIR / "history.json"   # 每次执行一条记录(转写/解读/…)
 _HISTORY_MAX = 800
 EXPORT_DIR = config.DATA_DIR / "exports"
-_lock = threading.Lock()
+_lock = threading.RLock()
 _tasks: dict[str, dict] = {}
+_history: list[dict] = []
 _folders: list[dict] = []
 _procs: dict[str, subprocess.Popen] = {}   # burn 子进程,供暂停/终止
 
@@ -132,8 +130,7 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ================= 文件夹 =================
 def _persist_folders():
-    _FOLDERS_FILE.write_text(json.dumps(_folders, ensure_ascii=False, indent=1),
-                             encoding="utf-8")
+    db.save_folders(_folders)
 
 
 def list_folders() -> list[dict]:
@@ -371,21 +368,22 @@ def _rebase(p: str | None) -> str | None:
 
 
 def _load():
-    global _tasks, _folders
-    if _TASKS_FILE.exists():
-        try:
-            _tasks = json.loads(_TASKS_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            _tasks = {}
+    global _tasks, _folders, _history
+    db.init()
+    db.migrate_json_state({
+        "tasks": config.DATA_DIR / "tasks.json",
+        "folders": config.DATA_DIR / "folders.json",
+        "history": config.DATA_DIR / "history.json",
+    })
+    _tasks = db.load_tasks()
+    _folders = db.load_folders()
+    _history = db.load_history()
     for t in _tasks.values():          # 迁移历史绝对路径(目录改名/搬盘后自愈)
         for k in ("media", "burned_path"):
             if t.get(k):
                 t[k] = _rebase(t[k])
-    if _FOLDERS_FILE.exists():
-        try:
-            _folders = json.loads(_FOLDERS_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            _folders = []
+    if _history:
+        db.set_meta("history_seeded", "1")   # 旧记录已存在,不再补种
 
 
 _persist_timer: threading.Timer | None = None
@@ -393,9 +391,8 @@ _persist_timer: threading.Timer | None = None
 
 def _flush():
     """立即写盘——由 debounce 调用或进程退出时调用。"""
-    tmp = _TASKS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(_tasks, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(_TASKS_FILE)
+    with _lock:
+        db.save_tasks(_tasks)
 
 
 def _persist(force: bool = False):
@@ -424,20 +421,13 @@ def _update(task_id: str, **fields):
 
 # ---- 执行记录:一次作业一行,不按音视频聚合 ----
 def _history_load() -> list[dict]:
-    if not _HISTORY_FILE.exists():
-        return []
-    try:
-        data = json.loads(_HISTORY_FILE.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except (OSError, json.JSONDecodeError):
-        return []
+    return list(_history)
 
 
 def _history_save(items: list[dict]):
-    tmp = _HISTORY_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(items[-_HISTORY_MAX:], ensure_ascii=False, indent=1),
-                   encoding="utf-8")
-    tmp.replace(_HISTORY_FILE)
+    global _history
+    _history = items[-_HISTORY_MAX:]
+    db.save_history(_history)
 
 
 def _run_key(task_id: str, kind: str) -> str:
@@ -1260,7 +1250,7 @@ def _recover():
 
 def _seed_history():
     """首次启用执行记录:按现有结果补一份当前版本记录,避免历史空白。"""
-    if _HISTORY_FILE.exists():
+    if db.get_meta("history_seeded"):
         return
     entries: list[dict] = []
     with _lock:
@@ -1295,6 +1285,7 @@ def _seed_history():
                     pass
     entries.sort(key=lambda x: x["at"])
     _history_save(entries)
+    db.set_meta("history_seeded", "1")
 
 
 def _migrate_history():
@@ -1348,8 +1339,86 @@ def _migrate_media_layout():
         _persist(force=True)
 
 
+def _esc(s) -> str:
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _legacy_visual_html(spec: dict) -> str:
+    """把旧版 sections/blocks 视觉化转换成静态 HTML 卡片。"""
+    title = _esc(spec.get("title") or "视觉化")
+    kicker = _esc(spec.get("kicker") or "")
+    footer = _esc(spec.get("footer") or "")
+    secs = list(spec.get("sections") or [])
+    highlights: list[str] = []
+    for b in spec.get("blocks") or []:
+        if not isinstance(b, dict):
+            continue
+        t = b.get("type")
+        if t == "sections":
+            secs.extend(b.get("items") or [])
+        elif t == "highlights":
+            highlights.extend(b.get("items") or [])
+        elif t == "takeaway" and b.get("text"):
+            footer = _esc(b["text"])
+    parts = []
+    if highlights:
+        cells = "".join(
+            f'<td style="padding:12px;background:#f0ebe0;border-radius:6px;font-size:12px;'
+            f'color:#806b50;text-align:center;">{_esc(x)}</td>' for x in highlights[:4])
+        parts.append(f'<table style="width:100%;border-collapse:separate;border-spacing:8px;'
+                     f'margin-bottom:16px;"><tr>{cells}</tr></table>')
+    for s in secs:
+        if not isinstance(s, dict):
+            continue
+        label = _esc(s.get("label") or "")
+        points = s.get("points") or s.get("items") or []
+        rows = "".join(
+            f'<p style="margin:0 0 7px 0;font-size:13px;line-height:1.75;color:#4a4a4a;">'
+            f'· {_esc(x)}</p>' for x in points)
+        parts.append(
+            '<div style="background:#fff;border:1px solid #e0d8c8;border-radius:8px;'
+            'padding:16px 20px;margin-bottom:14px;">'
+            f'<p style="margin:0 0 10px 0;font-size:14px;color:#a09080;'
+            f'letter-spacing:1px;">▎{label}</p>{rows}</div>')
+    return (
+        '<div style="width:800px;box-sizing:border-box;background:#faf8f5;'
+        "padding:34px 40px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',"
+        "'Microsoft YaHei',sans-serif;color:#1f1f1f;\">"
+        f'<p style="margin:0 0 6px 0;font-size:22px;font-weight:700;'
+        f'text-align:center;letter-spacing:2px;">{title}</p>'
+        f'<p style="margin:0 0 26px 0;font-size:13px;color:#a09080;'
+        f'text-align:center;letter-spacing:1px;">{kicker}</p>'
+        + "".join(parts) +
+        f'<p style="margin:20px 0 0 0;font-size:11px;color:#c0b090;'
+        f'text-align:center;letter-spacing:2px;">{footer}</p></div>'
+    )
+
+
+def _migrate_visuals_html():
+    """旧版视觉化一次性转为 HTML;之后可移除 SVG 渲染引擎。"""
+    for path in config.RESULT_DIR.glob("*.visuals.json"):
+        try:
+            items = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        changed = False
+        for item in items:
+            spec = item.get("spec") if isinstance(item, dict) else None
+            if not isinstance(spec, dict) or spec.get("html"):
+                continue
+            if spec.get("sections") or spec.get("blocks"):
+                spec["html"] = _legacy_visual_html(spec)
+                item["spec"] = spec
+                changed = True
+        if changed:
+            path.write_text(json.dumps(items, ensure_ascii=False, indent=1),
+                            encoding="utf-8")
+
+
 _load()
 _migrate_media_layout()
+_migrate_visuals_html()
 _seed_history()
 _migrate_history()
 threading.Thread(target=_worker, args=("heavy",), daemon=True).start()

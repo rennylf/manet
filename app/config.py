@@ -16,8 +16,10 @@ for _var in ("NO_PROXY", "no_proxy"):
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"      # 原始上传文件(用于回放)
-AUDIO_DIR = DATA_DIR / "audio"         # ffmpeg 抽取的 16k wav
+CACHE_DIR = DATA_DIR / "cache"         # 可安全清理的中间文件
+AUDIO_DIR = CACHE_DIR / "audio"        # ffmpeg 抽取的 16k wav
 RESULT_DIR = DATA_DIR / "results"      # 转写/分析 JSON
+DB_FILE = DATA_DIR / "manet.db"        # 任务 / 档案夹 / 执行记录
 
 for d in (UPLOAD_DIR, AUDIO_DIR, RESULT_DIR):
     d.mkdir(parents=True, exist_ok=True)

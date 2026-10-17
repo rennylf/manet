@@ -121,14 +121,15 @@ app/
 ├── main.py        # FastAPI 路由:导入/任务/正文/解读/导出/Obsidian/设置
 ├── config.py      # 全局配置(环境变量覆盖 + 默认提示词)
 ├── settings.py    # 运行时设置(data/settings.json,改后立即生效)
-├── tasks.py       # 双通道任务队列(heavy/llm)+ 持久化 + 重启自愈
+├── db.py          # SQLite 元数据(任务/档案夹/执行记录)
+├── tasks.py       # 双通道任务队列(heavy/llm)+ 媒体归档 + 重启自愈
 ├── transcribe.py  # ffmpeg 抽音 + 语言检测 + 三引擎转写 + 幻觉过滤
-├── llm.py         # 标点/翻译/解读/脑图/问答/随笔(map-reduce + 并行)
+├── llm.py         # 标点/翻译/解读/脑图/问答/随笔/视觉化(map-reduce + 并行)
 ├── local_llm.py   # 进程内 mlx-lm(本地翻译)
 └── static/        # 前端单页(vanilla JS,无构建步骤)
 scripts/           # 启动器 + 冒烟测试
 models/            # 本地模型(自动下载,git 忽略)
-data/              # 你的留存(上传/转写结果/设置,git 忽略)
+data/              # 本机数据:媒体/结果/manet.db/设置(git 忽略)
 ```
 
 ## 设计

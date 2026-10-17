@@ -701,10 +701,7 @@ body {
   transition: color var(--t-fast), background var(--t-fast); }
 .vis-del:hover { color: var(--danger); background: var(--hover); }
 .vis-thumb { border: 1px solid var(--border); border-radius: 3px; overflow: hidden; background: var(--paper2); }
-.vis-thumb svg { display: block; width: 100%; height: auto; }
 .visual-body { flex: 1; min-height: 0; overflow: auto; padding: 18px; background: var(--paper2); border-radius: 0 0 5px 5px; }
-.visual-body svg { display: block; width: 100%; height: auto; max-width: 840px; margin: 0 auto;
-  border: 1px solid var(--border); background: #F7F5F0; }
 /* 技能路线:模型输出内联 CSS 的 HTML,iframe 内渲染 */
 .visual-html { position: relative; width: 100%; overflow: hidden; background: #FAF8F5;
   border: 1px solid var(--border); border-radius: 3px; }
