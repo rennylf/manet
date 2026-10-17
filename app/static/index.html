@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -121,20 +121,7 @@
           <button id="btn-mindmap" class="btn ghost sm" title="思维导图"><svg class="icon"><use href="#i-mindmap"/></svg>脑图</button>
           <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔"><svg class="icon"><use href="#i-essay"/></svg>随笔</button>
           <button id="btn-analyze" class="btn primary sm" title="AI 通读留存:摘要 / 章节 / 待办 / 关键词"><svg class="icon"><use href="#i-interpret"/></svg>AI 解读</button>
-          <div class="dropdown">
-            <button id="btn-export" class="btn ghost sm"><svg class="icon"><use href="#i-export"/></svg>导出</button>
-            <div id="export-menu" class="dropdown-menu" hidden>
-              <a data-format="md">Markdown(当前显示)</a>
-              <a data-format="txt">TXT(当前显示)</a>
-              <a data-format="srt" data-lang="orig">SRT 字幕 · 原文</a>
-              <a data-format="srt" data-lang="zh">SRT 字幕 · 中文</a>
-              <a data-format="srt" data-lang="both">SRT 字幕 · 双语</a>
-              <a id="menu-burn-mp4">封装软字幕 · MP4</a>
-              <a id="menu-burn-mkv">封装软字幕 · MKV</a>
-              <div class="cm-sep"></div>
-              <a id="menu-obsidian">导出 Obsidian</a>
-            </div>
-          </div>
+          <button id="btn-export" class="btn ghost sm"><svg class="icon"><use href="#i-export"/></svg>导出</button>
           <div class="dropdown">
             <button id="btn-more" class="btn ghost sm" title="更多操作"><svg class="icon"><use href="#i-more"/></svg></button>
             <div id="more-menu" class="dropdown-menu" hidden>
@@ -408,6 +395,51 @@
   </div>
 </div>
 
+<!-- 导出弹窗 -->
+<div id="export-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" style="width:460px">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use href="#i-export"/></svg> 导出</span>
+      <div class="spacer"></div>
+      <button id="export-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="set-section first">
+        <h5>文件</h5>
+        <label>格式</label>
+        <div class="seg-ctrl" id="ex-format" style="width:100%">
+          <button data-v="md" class="active" style="flex:1">Markdown</button>
+          <button data-v="txt" style="flex:1">TXT</button>
+          <button data-v="srt" style="flex:1">SRT 字幕</button>
+        </div>
+        <label style="margin-top:12px">语言</label>
+        <div class="seg-ctrl" id="ex-lang" style="width:100%">
+          <button data-v="orig" class="active" style="flex:1">原文</button>
+          <button data-v="zh" style="flex:1">中文</button>
+          <button data-v="both" style="flex:1">双语</button>
+        </div>
+        <p class="muted tiny" id="ex-hint" style="margin-top:8px"></p>
+      </div>
+      <div class="set-section">
+        <h5>影音</h5>
+        <div class="field-row">
+          <button id="ex-burn-mp4" class="btn ghost sm" style="flex:1;justify-content:center">封装软字幕 · MP4</button>
+          <button id="ex-burn-mkv" class="btn ghost sm" style="flex:1;justify-content:center">封装软字幕 · MKV</button>
+        </div>
+        <p class="muted tiny" style="margin-top:6px">字幕轨混流,播放时可开关;使用上方所选语言。</p>
+      </div>
+      <div class="set-section">
+        <h5>知识库</h5>
+        <button id="ex-obsidian" class="btn ghost sm" style="width:100%;justify-content:center"><svg class="icon"><use href="#i-note"/></svg>导出到 Obsidian</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button id="ex-save" class="btn primary"><svg class="icon"><use href="#i-download"/></svg>保存文件</button>
+    </div>
+  </div>
+</div>
+
 <!-- 阅读模式:选中文本后的批注浮条 -->
 <div id="hl-toolbar" class="hl-toolbar" hidden>
   <button class="hl-btn" data-act="hl"><span class="hl-dot"></span>高亮</button>
@@ -430,6 +462,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>

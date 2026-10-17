@@ -763,22 +763,61 @@ function pollTranslate() {
   }, 2000);
 }
 
-/* ================= 导出 / 更多 ================= */
-$("#btn-export").addEventListener("click", e => { e.stopPropagation(); $("#more-menu").hidden = true; $("#export-menu").hidden = !$("#export-menu").hidden; });
-$("#btn-more").addEventListener("click", e => { e.stopPropagation(); $("#export-menu").hidden = true; $("#more-menu").hidden = !$("#more-menu").hidden; });
-document.addEventListener("click", () => { $("#export-menu").hidden = true; $("#more-menu").hidden = true; });
-$$("#export-menu a[data-format]").forEach(a => a.addEventListener("click", () => {
-  const lang = a.dataset.lang || state.displayMode;
-  if (lang !== "orig" && !state.translation) { toast("请先生成翻译,再导出中文/双语版本"); return; }
-  window.open(`/api/tasks/${state.taskId}/export?format=${a.dataset.format}&lang=${lang}`, "_blank");
-}));
+/* ================= 导出弹窗 / 更多 ================= */
+const exOverlay = $("#export-overlay");
+const exState = { format: "md", lang: "orig" };
 
-$("#menu-obsidian").addEventListener("click", async () => {
+function syncExport() {
+  const hasZh = !!state.translation;
+  const isVideo = VIDEO_EXT.includes(fileExt(state.task?.filename || ""));
+  if (!hasZh) exState.lang = "orig";
+  $$("#ex-format button").forEach(b => b.classList.toggle("active", b.dataset.v === exState.format));
+  $$("#ex-lang button").forEach(b => {
+    b.classList.toggle("active", b.dataset.v === exState.lang);
+    b.disabled = b.dataset.v !== "orig" && !hasZh;
+  });
+  $("#ex-hint").textContent = hasZh ? "中文 / 双语基于当前译文。" : "尚未生成翻译,仅可导出原文。";
+  $$("#ex-burn-mp4, #ex-burn-mkv").forEach(b => {
+    b.disabled = !isVideo || exState.lang !== "orig" && !hasZh;
+    b.title = isVideo ? "" : "音频文件没有视频画面,无法封装字幕轨";
+  });
+}
+function openExport() {
+  $("#more-menu").hidden = true;
+  exState.lang = state.translation ? state.displayMode : "orig";
+  syncExport(); exOverlay.hidden = false;
+}
+$("#btn-export").addEventListener("click", openExport);
+$("#export-close").addEventListener("click", () => (exOverlay.hidden = true));
+$$("#ex-format button").forEach(b => b.addEventListener("click", () => { exState.format = b.dataset.v; syncExport(); }));
+$$("#ex-lang button").forEach(b => b.addEventListener("click", () => {
+  if (b.disabled) return;
+  exState.lang = b.dataset.v; syncExport();
+}));
+$("#ex-save").addEventListener("click", () => {
+  window.open(`/api/tasks/${state.taskId}/export?format=${exState.format}&lang=${exState.lang}`, "_blank");
+  exOverlay.hidden = true;
+});
+function exportBurn(container) {
+  if (exState.lang !== "orig" && !state.translation) { toast("请先生成翻译,再封装中文字幕"); return; }
+  api(`/api/tasks/${state.taskId}/burn`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: exState.lang, container }),
+  }).then(() => { exOverlay.hidden = true; openJobs(); })
+    .catch(e => toast("无法封装:" + e.message));
+}
+$("#ex-burn-mp4").addEventListener("click", () => exportBurn("mp4"));
+$("#ex-burn-mkv").addEventListener("click", () => exportBurn("mkv"));
+$("#ex-obsidian").addEventListener("click", async () => {
   try {
     const r = await api(`/api/tasks/${state.taskId}/export-obsidian`, { method: "POST" });
     toast("已导出到 Obsidian:" + r.path);
+    exOverlay.hidden = true;
   } catch (e) { toast("Obsidian 导出失败:" + e.message); }
 });
+
+$("#btn-more").addEventListener("click", e => { e.stopPropagation(); $("#more-menu").hidden = !$("#more-menu").hidden; });
+document.addEventListener("click", () => { $("#more-menu").hidden = true; });
 
 $("#btn-aititle").addEventListener("click", async () => {
   const b = $("#btn-aititle"); b.disabled = true;   // 生成中防连点
@@ -807,15 +846,6 @@ function pollPolish() {
   }, 2000);
 }
 
-/* 字幕封装 */
-function bindBurn(sel, container) {
-  $(sel).addEventListener("click", async () => {
-    const mode = state.displayMode;
-    if (mode !== "orig" && !state.translation) { toast("请先生成翻译再封装中文字幕"); return; }
-    try { await api(`/api/tasks/${state.taskId}/burn`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, container }) }); openJobs(); } catch (e) { toast("无法封装:" + e.message); }
-  });
-}
-bindBurn("#menu-burn-mp4", "mp4"); bindBurn("#menu-burn-mkv", "mkv");
 
 /* ================= AI 解读 ================= */
 $("#btn-analyze").addEventListener("click", async () => { try { await api(`/api/tasks/${state.taskId}/analyze`, { method: "POST" }); switchTab("ai"); pollAnalysis(); } catch (e) { toast("无法开始分析:" + e.message); } });

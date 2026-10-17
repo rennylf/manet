@@ -586,6 +586,7 @@ body {
 }
 .seg-ctrl button + button { border-left: 1px solid var(--border); }
 .seg-ctrl button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.seg-ctrl button:disabled { color: var(--text-3); cursor: not-allowed; background: transparent; }
 
 /* ---------- Toast:纸片式提示,左侧细色条表语义 ---------- */
 .toast {
