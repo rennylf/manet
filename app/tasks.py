@@ -291,8 +291,24 @@ def _history_save(items: list[dict]):
     tmp.replace(_HISTORY_FILE)
 
 
+def _run_key(task_id: str, kind: str) -> str:
+    """执行记录的替换键:同一任务同类生成只保留最新一条。"""
+    if kind != "visual":
+        return kind
+    try:                                  # 视觉化按卡片区分,重生成同一张时替换
+        items = json.loads((config.RESULT_DIR / f"{task_id}.visuals.json")
+                           .read_text(encoding="utf-8"))
+        latest = max(items, key=lambda x: x.get("updated_at") or x.get("created_at") or 0,
+                     default=None)
+        if latest and latest.get("id"):
+            return f"visual:{latest['id']}"
+    except (OSError, json.JSONDecodeError):
+        pass
+    return kind
+
+
 def _log_run(task_id: str, kind: str):
-    """作业结束时写一条执行记录;失败与终止也保留,便于回看。"""
+    """作业结束写一条执行记录:重新生成会顶替同任务同类旧记录。"""
     if kind == "polish":                  # 标点恢复是转写的内部步骤,不单独记
         return
     with _lock:
@@ -304,9 +320,14 @@ def _log_run(task_id: str, kind: str):
             status = "error"
         if status not in ("done", "error", "cancelled"):
             return
-        items = _history_load()
+        if kind == "visual" and status != "done":
+            return                        # 视觉化失败时旧卡片仍在,保留原记录
+        key = _run_key(task_id, kind)
+        items = [h for h in _history_load()
+                 if not (h.get("task_id") == task_id
+                         and (h.get("key") or h.get("kind")) == key)]
         items.append({"id": uuid.uuid4().hex[:10], "task_id": task_id,
-                      "title": _display_title(t), "kind": kind,
+                      "title": _display_title(t), "kind": kind, "key": key,
                       "status": status, "at": time.time()})
         _history_save(items)
 
@@ -393,11 +414,18 @@ def retranscribe(task_id: str, language: str | None, hotwords: str | None,
             engine=engine, auto_translate=bool(auto_translate),
         )
         _persist(force=True)
-    # 清掉旧结果
-    for name in (".json", ".analysis.json", ".mindmap.json", ".translation.json", ".essay.txt"):
+    # 清掉旧结果与派生内容(视觉化按旧转写生成,一并作废)
+    for name in (".json", ".analysis.json", ".mindmap.json", ".translation.json",
+                 ".essay.txt", ".visuals.json"):
         (config.RESULT_DIR / f"{task_id}{name}").unlink(missing_ok=True)
     if old_burned:
         Path(old_burned).unlink(missing_ok=True)
+    with _lock:                 # 派生记录随旧内容作废,只留转写记录(稍后顶替)
+        items = _history_load()
+        keep = [h for h in items
+                if not (h.get("task_id") == task_id and h.get("kind") != "transcribe")]
+        if len(keep) != len(items):
+            _history_save(keep)
     _enqueue(task_id, "transcribe")
 
 
@@ -423,6 +451,7 @@ def request_analysis(task_id: str):
         task["analysis_status"] = "running"
         task["analysis_error"] = None
         _persist(force=True)
+    (config.RESULT_DIR / f"{task_id}.analysis.json").unlink(missing_ok=True)
     _enqueue(task_id, "analyze")
 
 
@@ -437,6 +466,8 @@ def _request_derived(task_id: str, field: str, kind: str):
         task[field] = "running"
         task[field.replace("_status", "_error")] = None
         _persist(force=True)
+    suffix = {"mindmap_status": ".mindmap.json", "essay_status": ".essay.txt"}[field]
+    (config.RESULT_DIR / f"{task_id}{suffix}").unlink(missing_ok=True)
     _enqueue(task_id, kind)
 
 
@@ -496,6 +527,11 @@ def delete_visual(task_id: str, vid: str):
             raise KeyError(vid)
         path.write_text(json.dumps(remain, ensure_ascii=False, indent=1),
                         encoding="utf-8")
+        # 对应的执行记录一并移除
+        hist = _history_load()
+        keep = [h for h in hist if h.get("key") != f"visual:{vid}"]
+        if len(keep) != len(hist):
+            _history_save(keep)
 
 
 def next_ai_title(task_id: str) -> str:
@@ -703,6 +739,7 @@ def request_translate(task_id: str):
         task["translation_status"] = "running"
         task["translation_error"] = None
         _persist(force=True)
+    (config.RESULT_DIR / f"{task_id}.translation.json").unlink(missing_ok=True)
     _enqueue(task_id, "translate")
 
 
@@ -754,7 +791,11 @@ def request_burn(task_id: str, mode: str, container: str = "mp4"):
         task["burn_container"] = container
         task["burn_status"] = "running"
         task["burn_error"] = None
+        old_burned = task.get("burned_path")
+        task["burned_path"] = None
         _persist(force=True)
+    if old_burned:
+        Path(old_burned).unlink(missing_ok=True)
     _enqueue(task_id, "burn")
 
 
@@ -1061,10 +1102,12 @@ def _seed_history():
             title = _display_title(t)
             base = t.get("updated_at") or t.get("created_at") or time.time()
 
-            def add(kind: str, status: str | None, at: float | None = None):
+            def add(kind: str, status: str | None, at: float | None = None,
+                    key: str | None = None):
                 if status in ("done", "error", "cancelled"):
                     entries.append({"id": uuid.uuid4().hex[:10], "task_id": tid,
                                     "title": title, "kind": kind,
+                                    "key": key or kind,
                                     "status": status, "at": at or base})
 
             add("transcribe", t.get("status"))
@@ -1078,15 +1121,56 @@ def _seed_history():
             if vpath.exists():
                 try:
                     for v in json.loads(vpath.read_text(encoding="utf-8")) or []:
-                        add("visual", "done", v.get("created_at"))
+                        add("visual", "done", v.get("created_at"),
+                            f"visual:{v.get('id')}")
                 except (OSError, json.JSONDecodeError):
                     pass
     entries.sort(key=lambda x: x["at"])
     _history_save(entries)
 
 
+def _migrate_history():
+    """旧记录补齐替换键;视觉化按时间就近配对到具体卡片。"""
+    with _lock:
+        items = _history_load()
+        changed = False
+        cache: dict[str, list] = {}
+        used: set[str] = {h.get("key") for h in items
+                          if (h.get("key") or "").startswith("visual:")}
+        drop: set[str] = set()
+        for h in items:
+            if h.get("key") and h.get("key") != "visual":
+                continue
+            key = h.get("kind") or ""
+            if key == "visual":
+                tid = h.get("task_id") or ""
+                if tid not in cache:
+                    try:
+                        cache[tid] = json.loads(
+                            (config.RESULT_DIR / f"{tid}.visuals.json")
+                            .read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        cache[tid] = []
+                pool = [v for v in cache[tid]
+                        if f"visual:{v.get('id')}" not in used]
+                if not pool:               # 卡片已不存在 → 记录作废
+                    drop.add(h.get("id"))
+                    changed = True
+                    continue
+                best = min(pool, key=lambda v: abs(
+                    (v.get("created_at") or v.get("updated_at") or 0)
+                    - h.get("at", 0)))
+                key = f"visual:{best['id']}"
+                used.add(key)
+            h["key"] = key
+            changed = True
+        if changed:
+            _history_save([h for h in items if h.get("id") not in drop])
+
+
 _load()
 _seed_history()
+_migrate_history()
 threading.Thread(target=_worker, args=("heavy",), daemon=True).start()
 threading.Thread(target=_worker, args=("llm",), daemon=True).start()
 _recover()
