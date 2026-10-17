@@ -63,6 +63,7 @@ _JOB_FIELD = {
     "burn": "burn_status",
     "mindmap": "mindmap_status",
     "essay": "essay_status",
+    "visual": "visual_status",
 }
 
 
@@ -305,6 +306,9 @@ def create_task(filename: str, tmp_path: Path, language: str | None,
             "mindmap_error": None,
             "essay_status": None,       # 随笔:None / running / done / error(后台任务)
             "essay_error": None,
+            "visual_status": None,      # 视觉化:None / running / done / error(后台任务)
+            "visual_error": None,
+            "_visual_req": None,        # 本次视觉化请求参数(一次性)
             "paused": False,
             "cancel_requested": False,
             "engine": engine,            # 本次任务的转写引擎(None=跟随设置页)
@@ -336,6 +340,7 @@ def retranscribe(task_id: str, language: str | None, hotwords: str | None,
             burn_status=None, burn_error=None, burned_path=None,
             mindmap_status=None, mindmap_error=None,
             essay_status=None, essay_error=None,
+            visual_status=None, visual_error=None, _visual_req=None,
             ai_title=None, ai_title_pool=[], ai_title_used=[],
             paused=False, cancel_requested=False,
             engine=engine, auto_translate=bool(auto_translate),
@@ -394,6 +399,37 @@ def request_mindmap(task_id: str):
 
 def request_essay(task_id: str):
     _request_derived(task_id, "essay_status", "essay")
+
+
+def request_visual(task_id: str, start: int | None = None,
+                   end: int | None = None, quote: str = ""):
+    """视觉化:scope=整篇(start/end 为 None)或选中句区间。"""
+    with _lock:
+        task = _tasks.get(task_id)
+        if not task or task["status"] != "done":
+            raise KeyError(task_id)
+        if task.get("visual_status") == "running":
+            raise ValueError("正在生成中,请稍候")
+        task["visual_status"] = "running"
+        task["visual_error"] = None
+        task["_visual_req"] = {"start": start, "end": end, "quote": (quote or "")[:300]}
+        _persist(force=True)
+    _enqueue(task_id, "visual")
+
+
+def request_visual_regen(task_id: str, vid: str):
+    """重新生成某条视觉化(保持条目 id 与类型/区间,替换内容)。"""
+    with _lock:
+        task = _tasks.get(task_id)
+        if not task or task["status"] != "done":
+            raise KeyError(task_id)
+        if task.get("visual_status") == "running":
+            raise ValueError("正在生成中,请稍候")
+        task["visual_status"] = "running"
+        task["visual_error"] = None
+        task["_visual_req"] = {"vid": vid}
+        _persist(force=True)
+    _enqueue(task_id, "visual")
 
 
 def next_ai_title(task_id: str) -> str:
@@ -479,7 +515,7 @@ def mark_edited(task_id: str, sentences: list[dict]):
     tr.save_result(task_id, data)
     # 翻译/笔记/脑图/随笔/标注按句索引或原文对齐,编辑后会错位 → 作废(用户笔记保留)
     for name in (".translation.json", ".analysis.json", ".mindmap.json", ".essay.txt",
-                 ".highlights.json"):
+                 ".highlights.json", ".visuals.json"):
         (config.RESULT_DIR / f"{task_id}{name}").unlink(missing_ok=True)
     with _lock:
         t = _tasks.get(task_id)
@@ -487,7 +523,8 @@ def mark_edited(task_id: str, sentences: list[dict]):
             t.update(analyzed=False, analysis_status=None,
                      translation_status=None, translation_error=None,
                      mindmap_status=None, mindmap_error=None,
-                     essay_status=None, essay_error=None)
+                     essay_status=None, essay_error=None,
+                     visual_status=None, visual_error=None)
             _persist(force=True)
     log.info("task %s 文本已编辑,派生数据(翻译/笔记/脑图)已作废", task_id)
 
@@ -784,6 +821,50 @@ def _run_essay(task_id: str):
         _update(task_id, essay_status="error", essay_error=str(e)[:300])
 
 
+def _run_visual(task_id: str):
+    try:
+        data = tr.load_result(task_id)
+        if data is None:
+            raise llm_mod.LLMError("找不到转写结果")
+        req = (get_task(task_id) or {}).get("_visual_req") or {}
+        path = config.RESULT_DIR / f"{task_id}.visuals.json"
+        items = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+        vid = req.get("vid")
+        if vid:
+            item = next((x for x in items if x.get("id") == vid), None)
+            if item is None:
+                raise llm_mod.LLMError("视觉化条目不存在")
+            s, e, kind = item.get("start"), item.get("end"), item.get("kind")
+        else:
+            s, e = req.get("start"), req.get("end")
+            kind = "selection" if s is not None and e is not None else "full"
+        if kind == "selection" and s is not None and e is not None:
+            text = "".join(x["text"] for x in data["sentences"][int(s):int(e) + 1])
+        else:
+            text = data.get("full_text") or "".join(
+                x["text"] for x in data["sentences"])
+        if not text.strip():
+            raise llm_mod.LLMError("没有可视觉化的文本")
+        spec = llm_mod.visualize(text)
+        if vid:
+            item.update(title=spec["title"], kicker=spec.get("kicker", ""),
+                        spec=spec, updated_at=time.time())
+        else:
+            items.append({"id": uuid.uuid4().hex[:10], "title": spec["title"],
+                          "kicker": spec.get("kicker", ""), "spec": spec,
+                          "kind": kind, "start": s, "end": e,
+                          "quote": (req.get("quote") or "")[:300],
+                          "created_at": time.time()})
+        path.write_text(json.dumps(items, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
+        _update(task_id, visual_status="done", _visual_req=None)
+    except llm_mod.JobCancelled:
+        _finish_cancel(task_id, "visual")
+    except Exception as e:  # noqa: BLE001
+        _update(task_id, visual_status="error", visual_error=str(e)[:300],
+                _visual_req=None)
+
+
 def _worker(channel: str):
     q = _queues[channel]
     while True:
@@ -814,6 +895,8 @@ def _worker(channel: str):
                     _run_mindmap(task_id)
                 elif kind == "essay":
                     _run_essay(task_id)
+                elif kind == "visual":
+                    _run_visual(task_id)
                 log.info("[%s] 完成 %s task=%s 耗时 %.1fs",
                          channel, kind, task_id, time.time() - t0)
             except Exception:  # noqa: BLE001 — 作业异常不让 worker 退出
@@ -823,6 +906,21 @@ def _worker(channel: str):
                     _current[channel] = {"task_id": None, "kind": None}
         finally:
             q.task_done()
+
+
+def clear_before(days: int) -> int:
+    """删除创建时间早于 days 天的历史记录(跳过正在转写的任务)。"""
+    cutoff = time.time() - days * 86400
+    with _lock:
+        ids = [tid for tid, t in _tasks.items()
+               if t.get("created_at", 0) < cutoff
+               and t.get("status") not in ("queued", "transcribing")]
+    for tid in ids:
+        try:
+            delete_task(tid)
+        except Exception:  # noqa: BLE001
+            log.exception("清理历史失败 task=%s", tid)
+    return len(ids)
 
 
 def _recover():
@@ -846,7 +944,7 @@ def _recover():
                 requeue.append((tid, "burn"))
             if t.get("analysis_status") == "running":
                 t["analysis_status"] = None
-            for f in ("mindmap_status", "essay_status"):
+            for f in ("mindmap_status", "essay_status", "visual_status"):
                 if t.get(f) == "running":
                     t[f] = None
         _persist(force=True)

@@ -87,6 +87,83 @@ def api_edit_transcript(task_id: str, body: TranscriptEdit):
     return {"ok": True}
 
 
+class VisualReq(BaseModel):
+    scope: str = "full"          # full | selection
+    start: int | None = None
+    end: int | None = None
+    quote: str = ""
+
+
+@app.get("/api/tasks/{task_id}/visuals")
+def api_get_visuals(task_id: str):
+    return {"visuals": load_json(config.RESULT_DIR / f"{task_id}.visuals.json") or []}
+
+
+@app.post("/api/tasks/{task_id}/visuals")
+def api_gen_visual(task_id: str, body: VisualReq):
+    s = e = None
+    if body.scope == "selection":
+        if body.start is None or body.end is None:
+            raise HTTPException(400, "缺少选区范围")
+        s, e = int(body.start), int(body.end)
+    try:
+        tasks.request_visual(task_id, s, e, body.quote)
+    except KeyError:
+        raise HTTPException(404, "转写结果不存在")
+    except ValueError as err:
+        raise HTTPException(409, str(err))
+    return {"queued": True}
+
+
+@app.post("/api/tasks/{task_id}/visuals/{vid}/regen")
+def api_regen_visual(task_id: str, vid: str):
+    try:
+        tasks.request_visual_regen(task_id, vid)
+    except KeyError:
+        raise HTTPException(404, "转写结果不存在")
+    except ValueError as err:
+        raise HTTPException(409, str(err))
+    return {"queued": True}
+
+
+@app.get("/api/history")
+def api_history():
+    """任务中心历史:每条记录附已产出内容分类,供筛选与详情。"""
+    out = []
+    for t in tasks.list_tasks():
+        if t.get("status") not in ("done", "error", "cancelled"):
+            continue
+        rid = t["id"]
+        cats = []
+        if t.get("status") == "done":
+            cats.append("transcribe")
+        for key, name in (("analysis", ".analysis.json"),
+                          ("translation", ".translation.json"),
+                          ("mindmap", ".mindmap.json"),
+                          ("essay", ".essay.txt")):
+            if (config.RESULT_DIR / f"{rid}{name}").exists():
+                cats.append(key)
+        visuals = load_json(config.RESULT_DIR / f"{rid}.visuals.json") or []
+        if visuals:
+            cats.append("visual")
+        if t.get("burned_path"):
+            cats.append("burn")
+        out.append({"id": rid, "title": t.get("display_title", rid),
+                    "created_at": t.get("created_at", 0),
+                    "duration": t.get("duration"),
+                    "status": t.get("status"),
+                    "categories": cats, "visuals": len(visuals)})
+    return out
+
+
+@app.delete("/api/tasks")
+def api_clear_tasks(before_days: int = 0):
+    """清理创建时间早于 N 天的历史记录(3/7/30)。"""
+    if before_days <= 0:
+        raise HTTPException(400, "before_days 需为正整数")
+    return {"removed": tasks.clear_before(before_days)}
+
+
 class RetranscribeReq(BaseModel):
     language: str = ""
     hotwords: str = ""

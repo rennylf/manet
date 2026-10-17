@@ -621,6 +621,54 @@ def suggest_titles(sentences: list[dict], exclude: list[str] | None = None,
 _TS_HEAD_RE = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[—\-–:：、.]?\s*(.*)$")
 
 
+VISUAL_PROMPT = """你是信息设计师。把下面这段文本整理成一张「视觉卡片」的结构化数据,只输出 JSON 对象:
+{"title": "标题(≤18字)", "kicker": "副标题或主题词(≤20字)",
+ "sections": [{"label": "分组名(≤8字)", "items": ["要点(≤28字)"]}],
+ "footer": "一句话总结(≤24字)"}
+要求:
+- 2~4 个分组,每组 2~4 条要点;
+- 提炼主旨、关键事实与结论,不编造;
+- 使用与文本相同的语言;
+- 只输出 JSON,不要任何其他内容。
+
+文本:
+{text}"""
+
+
+def _clean_visual(spec) -> dict:
+    if not isinstance(spec, dict):
+        raise LLMError("AI 未返回有效的视觉化结构")
+    sections = []
+    for s in (spec.get("sections") or [])[:4]:
+        if not isinstance(s, dict):
+            continue
+        label = str(s.get("label") or "").strip()[:16]
+        items = [str(x).strip()[:60] for x in (s.get("items") or [])
+                 if str(x).strip()][:5]
+        if label and items:
+            sections.append({"label": label, "items": items})
+    if not sections:
+        raise LLMError("AI 未返回有效的视觉化结构")
+    return {
+        "title": str(spec.get("title") or "未命名").strip()[:40],
+        "kicker": str(spec.get("kicker") or "").strip()[:40],
+        "sections": sections,
+        "footer": str(spec.get("footer") or "").strip()[:60],
+    }
+
+
+def visualize(text: str) -> dict:
+    """把整篇文本或节选整理成视觉卡片结构(供前端渲染为矢量卡片)。"""
+    text = (text or "").strip()
+    if not text:
+        raise LLMError("没有可视觉化的文本")
+    out = _chat([
+        {"role": "system", "content": "你是信息设计师,只输出 JSON。"},
+        {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:12000])},
+    ], temperature=0.4, timeout=180)
+    return _clean_visual(_extract_json(out))
+
+
 def _entries(v) -> list[dict]:
     """LLM 偶发把 chapters/todos 返回成字符串列表 → 统一成 dict。
 

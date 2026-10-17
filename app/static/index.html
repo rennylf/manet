@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -33,6 +33,7 @@
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/><path d="M12 4c2.5 2.4 4 5.1 4 8s-1.5 5.6-4 8c-2.5-2.4-4-5.1-4-8s1.5-5.6 4-8z"/></symbol>
   <symbol id="i-export" viewBox="0 0 24 24"><path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/><line x1="12" y1="13" x2="12" y2="3"/><polyline points="8 7 12 3 16 7"/></symbol>
   <symbol id="i-mindmap" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="17.5" cy="6" r="2.2"/><circle cx="17.5" cy="18" r="2.2"/><line x1="8.2" y1="10.9" x2="15.5" y2="7"/><line x1="8.2" y1="13.1" x2="15.5" y2="17"/></symbol>
+  <symbol id="i-visual" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="20"/><rect x="5.2" y="13" width="3.6" height="7" rx="1"/><rect x="10.2" y="9" width="3.6" height="11" rx="1"/><rect x="15.2" y="5" width="3.6" height="15" rx="1"/></symbol>
   <symbol id="i-read" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.6"/></symbol>
   <symbol id="i-tasks" viewBox="0 0 24 24"><line x1="9" y1="7" x2="19" y2="7"/><line x1="9" y1="12" x2="19" y2="12"/><line x1="9" y1="17" x2="19" y2="17"/><circle class="f" cx="5" cy="7" r="1.4"/><circle class="f" cx="5" cy="12" r="1.4"/><circle class="f" cx="5" cy="17" r="1.4"/></symbol>
   <symbol id="i-title" viewBox="0 0 24 24"><line x1="5" y1="6" x2="19" y2="6"/><line x1="12" y1="6" x2="12" y2="19"/><line x1="9" y1="19" x2="15" y2="19"/></symbol>
@@ -120,6 +121,7 @@
           <button id="btn-aititle" class="btn ghost sm" title="换一个 AI 标题"><svg class="icon"><use href="#i-title"/></svg>新标题</button>
           <button id="btn-mindmap" class="btn ghost sm" title="思维导图"><svg class="icon"><use href="#i-mindmap"/></svg>脑图</button>
           <button id="btn-essay" class="btn ghost sm" title="把转写稿改写为精炼随笔"><svg class="icon"><use href="#i-essay"/></svg>随笔</button>
+          <button id="btn-visual" class="btn ghost sm" title="把全文提炼成一张视觉卡片"><svg class="icon"><use href="#i-visual"/></svg>视觉化</button>
           <button id="btn-analyze" class="btn primary sm" title="AI 通读留存:摘要 / 章节 / 待办 / 关键词"><svg class="icon"><use href="#i-interpret"/></svg>AI 解读</button>
           <button id="btn-export" class="btn ghost sm"><svg class="icon"><use href="#i-export"/></svg>导出</button>
           <div class="dropdown">
@@ -167,6 +169,7 @@
             <button class="tab" data-tab="chat">问答</button>
             <button class="tab" data-tab="notes">札记</button>
             <button class="tab" data-tab="annot">批注<span id="annot-count" class="tab-count"></span></button>
+            <button class="tab" data-tab="visual">视觉化<span id="visual-count" class="tab-count"></span></button>
           </div>
           <div id="tab-ai" class="tab-pane">
             <div id="ai-status" class="ai-status" hidden></div>
@@ -186,6 +189,11 @@
           <div id="tab-notes" class="tab-pane" hidden>
             <textarea id="my-notes" class="my-notes" placeholder="此刻的理解,值得留下。自动保存…"></textarea>
             <div id="notes-status" class="notes-status"></div>
+          </div>
+          <div id="tab-visual" class="tab-pane" hidden>
+            <div id="visual-list" class="visual-list">
+              <div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片,<br>或在阅读模式下选中一段文字单独视觉化。</div>
+            </div>
           </div>
           <div id="tab-annot" class="tab-pane" hidden>
             <div id="annot-list" class="annot-list">
@@ -390,10 +398,17 @@
 <div id="jobs-overlay" class="modal-overlay" hidden>
   <div class="modal-card jobs-card">
     <div class="modal-head">
-      <span class="mm-title"><svg class="icon"><use href="#i-tasks"/></svg> 任务中心</span>
+      <span class="mm-title"><svg class="icon"><use href="#i-tasks"/></svg> 任务</span>
       <div class="spacer"></div>
+      <select id="jobs-clear" class="pb-speed" title="清理历史记录">
+        <option value="">清理历史…</option>
+        <option value="3">清理 3 天前</option>
+        <option value="7">清理 7 天前</option>
+        <option value="30">清理 30 天前</option>
+      </select>
       <button id="jobs-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
+    <div id="jobs-filters" class="jobs-filters"></div>
     <div id="jobs-list" class="jobs-list"></div>
   </div>
 </div>
@@ -435,10 +450,26 @@
   </div>
 </div>
 
+<!-- 视觉化详情 -->
+<div id="visual-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" style="width:min(920px,92vw);height:88vh;max-width:none;max-height:none">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use href="#i-visual"/></svg> 视觉化</span>
+      <span id="visual-kind" class="muted" style="font-size:11.5px"></span>
+      <div class="spacer"></div>
+      <button id="visual-regen" class="btn ghost sm"><svg class="icon"><use href="#i-regen"/></svg>重新生成</button>
+      <button id="visual-png" class="btn ghost sm"><svg class="icon"><use href="#i-download"/></svg>PNG</button>
+      <button id="visual-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div id="visual-body" class="visual-body"></div>
+  </div>
+</div>
+
 <!-- 阅读模式:选中文本后的批注浮条 -->
 <div id="hl-toolbar" class="hl-toolbar" hidden>
   <button class="hl-btn" data-act="hl"><span class="hl-dot"></span>高亮</button>
   <button class="hl-btn" data-act="cmt">评论</button>
+  <button class="hl-btn" data-act="vis">视觉化</button>
   <span class="hl-sep"></span>
   <button id="hl-remove" class="hl-remove" title="取消所选区间的高亮与评论">取消</button>
 </div>
@@ -457,6 +488,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

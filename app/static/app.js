@@ -23,6 +23,8 @@ const state = {
   homeAnim: false,   // 目录行入场动画开关:仅显式渲染(进首页/切文件夹)触发
   reading: localStorage.getItem("tw_reading") === "1",
   marks: [], comments: [], pendingRange: null, lastSel: null,
+  visuals: [], seenVisual: false,
+  history: [], histFilter: "全部", histDetail: null,
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -231,6 +233,7 @@ function openDetail(taskId) {
   state.chatMessages = []; state.translation = null;
   state.seenMindmap = false; state.seenEssay = false;
   state.marks = []; state.comments = []; state.pendingRange = null;
+  state.visuals = []; state.seenVisual = false;
   activeParaIdx = -1; playerReadyFor = null; exitEditMode();
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
@@ -238,7 +241,7 @@ function openDetail(taskId) {
   $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true; $("#btn-aititle").disabled = true;
-  renderSidebar(); pollTask(); loadNotes(); loadHighlights();
+  renderSidebar(); pollTask(); loadNotes(); loadHighlights(); loadVisuals();
 }
 $("#nav-home").addEventListener("click", showHome);
 $("#btn-back").addEventListener("click", showHome);
@@ -503,6 +506,12 @@ hlBar.querySelector('[data-act="hl"]').addEventListener("click", async () => {
   const quote = (window.getSelection()?.toString() || "").trim();
   state.marks.push({ start: r.start, end: r.end, text: quote });
   applyAnnots(); renderAnnotList(); hideHlBar(); await saveAnnots();
+});
+hlBar.querySelector('[data-act="vis"]').addEventListener("click", () => {
+  const r = selectedRange(); if (!r) return;
+  const quote = (window.getSelection()?.toString() || "").trim();
+  hideHlBar();
+  requestVisual({ scope: "selection", start: r.start, end: r.end, quote });
 });
 hlBar.querySelector('[data-act="cmt"]').addEventListener("click", () => {
   const r = selectedRange(); if (!r) return;
@@ -910,8 +919,9 @@ async function loadAnalysis() {
 /* ================= Tab 切换 ================= */
 function switchTab(name) {
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
-  ["ai", "chat", "notes", "annot"].forEach(n => ($("#tab-" + n).hidden = n !== name));
+  ["ai", "chat", "notes", "annot", "visual"].forEach(n => ($("#tab-" + n).hidden = n !== name));
   if (name === "annot") renderAnnotList();
+  if (name === "visual") { state.seenVisual = true; updateDerivBadges(); renderVisualList(); }
 }
 $$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
@@ -1116,8 +1126,10 @@ function updateDerivBadges() {
   const done = t.status === "done";
   $("#btn-mindmap").classList.toggle("has-new", t.mindmap_status === "done" && !state.seenMindmap);
   $("#btn-essay").classList.toggle("has-new", t.essay_status === "done" && !state.seenEssay);
+  $("#btn-visual").classList.toggle("has-new", t.visual_status === "done" && !state.seenVisual);
   $("#btn-mindmap").disabled = !done || t.mindmap_status === "running";
   $("#btn-essay").disabled = !done || t.essay_status === "running";
+  $("#btn-visual").disabled = !done || t.visual_status === "running";
 }
 function startDerivPoll() {
   if (state.derivPoll) return;
@@ -1134,8 +1146,10 @@ function startDerivPoll() {
         try { const r = await api(`/api/tasks/${state.taskId}/essay`); renderEssay(r.essay); } catch {}
       }
       if (prev?.essay_status === "running" && t.essay_status === "error") toast("随笔生成失败:" + (t.essay_error || ""), 5000);
+      if (prev?.visual_status === "running" && t.visual_status === "done") loadVisuals();
+      if (prev?.visual_status === "running" && t.visual_status === "error") toast("视觉化生成失败:" + (t.visual_error || ""), 5000);
       updateDerivBadges(); fetchTasks();
-      if (t.mindmap_status !== "running" && t.essay_status !== "running") { clearInterval(state.derivPoll); state.derivPoll = null; }
+      if (t.mindmap_status !== "running" && t.essay_status !== "running" && t.visual_status !== "running") { clearInterval(state.derivPoll); state.derivPoll = null; }
     } catch {}
   }, 2500);
 }
@@ -1196,6 +1210,107 @@ $("#essay-export-obsidian").addEventListener("click", async () => {
   } catch (e) { toast("导出失败:" + e.message, 5000); }
 });
 
+/* ================= 视觉化 ================= */
+/* 服务端只产出结构化 spec,前端按 Manet 规范渲染为矢量卡片(SVG) */
+function visualSVG(spec) {
+  spec = spec || {};
+  const secs = (spec.sections || []).slice(0, 4);
+  const rowH = secs.map(s => Math.max(2, (s.items || []).length) * 46 + 64);
+  const H = 460 + rowH.reduce((a, b) => a + b, 0) + 110;
+  let y = 326, body = "";
+  secs.forEach((s, i) => {
+    const h = rowH[i];
+    body += `<rect x="90" y="${y}" width="900" height="${h}" rx="3" fill="#FFFFFF" stroke="#E4E0D7"/>`
+      + `<text x="118" y="${y + 40}" font-size="22" letter-spacing="6" fill="#806B50">${escapeHtml(s.label || "")}</text>`
+      + (s.items || []).slice(0, 5).map((it, j) =>
+        `<text x="118" y="${y + 86 + j * 46}" font-size="21" fill="#292824">· ${escapeHtml(it)}</text>`).join("");
+    y += h + 20;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 ${H}" width="1080" height="${H}">`
+    + `<rect width="1080" height="${H}" fill="#F7F5F0"/>`
+    + `<g fill="none" stroke="#806B50" stroke-width="1.5" stroke-linecap="round" transform="translate(90,62) scale(1.5)"><path d="M8 11.5a4 4 0 0 1 8 0"/><path d="M3 15.5q2.25 -3 4.5 0t4.5 0t4.5 0t4.5 0"/></g>`
+    + `<text x="136" y="88" font-family="Songti SC,serif" font-size="24" letter-spacing="3" fill="#292824">Manet</text>`
+    + `<text x="990" y="86" text-anchor="end" font-size="15" letter-spacing="3" fill="#ABA69A">VISUALISATION</text>`
+    + `<text x="90" y="196" font-family="Songti SC,serif" font-size="48" font-weight="700" fill="#292824">${escapeHtml(spec.title || "")}</text>`
+    + `<text x="90" y="242" font-size="21" fill="#858176">${escapeHtml(spec.kicker || "")}</text>`
+    + `<line x1="90" y1="276" x2="990" y2="276" stroke="#292824" stroke-width="1"/>`
+    + body
+    + `<text x="90" y="${H - 52}" font-family="Songti SC,serif" font-style="italic" font-size="19" fill="#858176">${escapeHtml(spec.footer || "")}</text>`
+    + `<text x="990" y="${H - 52}" text-anchor="end" font-size="13" letter-spacing="2" fill="#ABA69A">QUOD MANET, MANET.</text>`
+    + `</svg>`;
+}
+function renderVisualList() {
+  const box = $("#visual-list"); if (!box) return;
+  const cnt = $("#visual-count");
+  if (cnt) cnt.textContent = state.visuals.length ? String(state.visuals.length) : "";
+  if (!state.visuals.length) {
+    box.innerHTML = '<div class="empty-hint">点右上角「视觉化」把全文提炼成一张卡片,<br>或在阅读模式下选中一段文字单独视觉化。</div>';
+    return;
+  }
+  box.innerHTML = "";
+  [...state.visuals].sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).forEach(v => {
+    const item = document.createElement("div"); item.className = "vis-item";
+    item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
+      + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span></div>`
+      + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
+    item.addEventListener("click", () => openVisual(v));
+    box.appendChild(item);
+  });
+}
+async function loadVisuals() {
+  try {
+    const r = await api(`/api/tasks/${state.taskId}/visuals`);
+    state.visuals = r.visuals || [];
+  } catch { state.visuals = []; }
+  renderVisualList();
+  updateDerivBadges();
+}
+let currentVisual = null;
+function openVisual(v, taskId = state.taskId) {
+  currentVisual = { ...v, _taskId: taskId };
+  $("#visual-kind").textContent = v.kind === "selection" ? "节选" : "全文";
+  $("#visual-body").innerHTML = visualSVG(v.spec);
+  $("#visual-overlay").hidden = false;
+}
+$("#visual-close").addEventListener("click", () => ($("#visual-overlay").hidden = true));
+$("#visual-png").addEventListener("click", () => {
+  const svg = $("#visual-body svg"); if (!svg) return;
+  const vb = svg.viewBox.baseVal, W = vb.width, H = vb.height;
+  const xml = new XMLSerializer().serializeToString(svg);
+  const url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2;
+    const ctx = c.getContext("2d"); ctx.scale(2, 2); ctx.fillStyle = "#F7F5F0";
+    ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.download = `${(currentVisual?.title || "视觉化").replace(/[\\/:*?"<>|]/g, "_")}.png`;
+    a.href = c.toDataURL("image/png"); a.click();
+    toast("已导出 PNG");
+  };
+  img.src = url;
+});
+$("#visual-regen").addEventListener("click", async () => {
+  if (!currentVisual) return;
+  try {
+    await api(`/api/tasks/${currentVisual._taskId}/visuals/${currentVisual.id}/regen`, { method: "POST" });
+    toast("已开始重新生成,完成后角标提醒", 4000);
+    $("#visual-overlay").hidden = true;
+    if (currentVisual._taskId === state.taskId) startDerivPoll();
+  } catch (e) { toast(/生成中/.test(e.message) ? e.message : "重新生成失败:" + e.message, 5000); }
+});
+async function requestVisual(body) {
+  try {
+    await api(`/api/tasks/${state.taskId}/visuals`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    toast("视觉化任务已开始,完成后角标提醒", 4000);
+    startDerivPoll();
+  } catch (e) { toast(/生成中/.test(e.message) ? e.message : "视觉化失败:" + e.message, 5000); }
+}
+$("#btn-visual").addEventListener("click", () => requestVisual({ scope: "full" }));
+
 /* ================= 任务中心 ================= */
 function jobsOf(t) {
   const out = [];
@@ -1220,6 +1335,8 @@ function jobsOf(t) {
   else if (t.mindmap_status === "error") push("i-mindmap", "脑图", "error", t.mindmap_error);
   if (t.essay_status === "running") push("i-essay", "随笔", "running", "撰写中");
   else if (t.essay_status === "error") push("i-essay", "随笔", "error", t.essay_error);
+  if (t.visual_status === "running") push("i-visual", "视觉化", "running", "生成中", { canPause: false });
+  else if (t.visual_status === "error") push("i-visual", "视觉化", "error", t.visual_error);
   if (t.burn_status === "running") push("i-film", "字幕封装", "running", "正在封装");
   else if (t.burn_status === "done") push("i-film", "字幕封装", "await", "已完成,待保存", { path: t.burned_path });
   else if (t.burn_status === "error") push("i-film", "字幕封装", "error", t.burn_error);
@@ -1231,26 +1348,113 @@ function allJobs() {
   const rank = { running: 0, canceling: 0, paused: 1, await: 2, error: 3, cancelled: 4 };
   return jobs.sort((a, b) => rank[a.state] - rank[b.state]);
 }
+const HIST_CATS = { "转写": "transcribe", "解读": "analysis", "翻译": "translation",
+  "脑图": "mindmap", "随笔": "essay", "视觉化": "visual", "封装": "burn" };
+
+async function loadHistory() {
+  try { state.history = await api("/api/history"); } catch { state.history = []; }
+}
+function historyRows() {
+  const key = HIST_CATS[state.histFilter];
+  return state.history.filter(h => !key || (h.categories || []).includes(key));
+}
 function renderJobs() {
-  const box = $("#jobs-list"), jobs = allJobs();
-  if (!jobs.length) { box.innerHTML = '<div class="empty-hint">没有进行中或待保存的任务</div>'; return; }
-  box.innerHTML = "";
-  for (const j of jobs) {
-    const row = document.createElement("div");
-    row.className = "job-row" + (j.state === "await" ? " done" : j.state === "error" ? " err" : j.state === "cancelled" ? " stop" : j.state === "paused" ? " paused" : "");
-    let act = "";
-    if (j.state === "await") act = `<button class="btn primary sm" data-save="${j.taskId}">${icon("i-download")}保存文件</button>`;
-    else if (j.state === "running") act = (j.canPause ? `<button class="btn ghost sm" data-pause="${j.taskId}" title="暂停">${icon("i-pause")}</button>` : "") + `<button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button><span class="spinner"></span>`;
-    else if (j.state === "paused") act = `<button class="btn ghost sm" data-resume="${j.taskId}" title="继续">${icon("i-play")}</button><button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button>`;
-    else if (j.state === "canceling") act = '<button class="btn ghost sm" disabled>终止中…</button><span class="spinner"></span>';
-    const stage = j.stage || { running: "进行中", paused: "已暂停", canceling: "终止中", await: "完成", error: "失败", cancelled: "已终止" }[j.state];
-    row.innerHTML = `<span class="j-icon">${icon(j.icon, "icon-18")}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
+  const box = $("#jobs-list"); box.innerHTML = "";
+  if (state.histDetail) { renderHistoryDetail(box, state.histDetail); return; }
+  const fb = $("#jobs-filters"); fb.innerHTML = "";
+  ["全部", "转写", "解读", "翻译", "脑图", "随笔", "视觉化", "封装"].forEach(f => {
+    const c = document.createElement("button");
+    c.className = "f-chip" + (state.histFilter === f ? " active" : "");
+    c.textContent = f;
+    c.addEventListener("click", () => { state.histFilter = f; renderJobs(); });
+    fb.appendChild(c);
+  });
+  const jobs = allJobs();
+  if (jobs.length) {
+    box.insertAdjacentHTML("beforeend", '<div class="jobs-section-head">进行中</div>');
+    for (const j of jobs) {
+      const row = document.createElement("div");
+      row.className = "job-row" + (j.state === "await" ? " done" : j.state === "error" ? " err" : j.state === "cancelled" ? " stop" : j.state === "paused" ? " paused" : "");
+      let act = "";
+      if (j.state === "await") act = `<button class="btn primary sm" data-save="${j.taskId}">${icon("i-download")}保存文件</button>`;
+      else if (j.state === "running") act = (j.canPause ? `<button class="btn ghost sm" data-pause="${j.taskId}" title="暂停">${icon("i-pause")}</button>` : "") + `<button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button><span class="spinner"></span>`;
+      else if (j.state === "paused") act = `<button class="btn ghost sm" data-resume="${j.taskId}" title="继续">${icon("i-play")}</button><button class="btn ghost sm danger" data-cancel="${j.taskId}" title="终止">${icon("i-close")}</button>`;
+      else if (j.state === "canceling") act = '<button class="btn ghost sm" disabled>终止中…</button><span class="spinner"></span>';
+      const stage = j.stage || { running: "进行中", paused: "已暂停", canceling: "终止中", await: "完成", error: "失败", cancelled: "已终止" }[j.state];
+      row.innerHTML = `<span class="j-icon">${icon(j.icon, "icon-18")}</span><div class="j-main"><div class="j-title">${escapeHtml(j.title)} · ${j.kind}</div><div class="j-stage ${j.state === "error" ? "err" : ""}">${escapeHtml(stage)}</div></div>${act}`;
+      box.appendChild(row);
+    }
+    box.querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", () => { const t = state.tasks.find(x => x.id === b.dataset.save); const a = document.createElement("a"); a.href = `/api/tasks/${b.dataset.save}/burned`; a.download = t?.burned_path?.split("/").pop() || "subbed.mp4"; document.body.appendChild(a); a.click(); a.remove(); toast("开始下载"); }));
+    box.querySelectorAll("[data-pause]").forEach(b => b.addEventListener("click", () => jobPause(b.dataset.pause, true)));
+    box.querySelectorAll("[data-resume]").forEach(b => b.addEventListener("click", () => jobPause(b.dataset.resume, false)));
+    box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", () => jobCancel(b.dataset.cancel)));
+  }
+  box.insertAdjacentHTML("beforeend", '<div class="jobs-section-head">历史</div>');
+  const rows = historyRows();
+  if (!rows.length) {
+    box.insertAdjacentHTML("beforeend", '<div class="empty-hint">没有匹配的历史记录</div>');
+    return;
+  }
+  for (const h of rows) {
+    const row = document.createElement("div"); row.className = "hist-row";
+    row.innerHTML = `<span class="hist-title">${escapeHtml(h.title)}</span>`
+      + `<span class="hist-date">${fmtDate(h.created_at)}</span>`
+      + `<div class="hist-cats">${(h.categories || []).map(c =>
+          `<span>${Object.keys(HIST_CATS).find(k => HIST_CATS[k] === c) || c}</span>`).join("")}</div>`;
+    row.addEventListener("click", () => { state.histDetail = h.id; renderJobs(); });
     box.appendChild(row);
   }
-  box.querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", () => { const t = state.tasks.find(x => x.id === b.dataset.save); const a = document.createElement("a"); a.href = `/api/tasks/${b.dataset.save}/burned`; a.download = t?.burned_path?.split("/").pop() || "subbed.mp4"; document.body.appendChild(a); a.click(); a.remove(); toast("开始下载"); }));
-  box.querySelectorAll("[data-pause]").forEach(b => b.addEventListener("click", () => jobPause(b.dataset.pause, true)));
-  box.querySelectorAll("[data-resume]").forEach(b => b.addEventListener("click", () => jobPause(b.dataset.resume, false)));
-  box.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", () => jobCancel(b.dataset.cancel)));
+}
+
+async function renderHistoryDetail(box, id) {
+  const h = state.history.find(x => x.id === id);
+  if (!h) { state.histDetail = null; renderJobs(); return; }
+  box.innerHTML = "";
+  const back = document.createElement("button");
+  back.className = "btn ghost sm"; back.textContent = "← 返回列表";
+  back.style.margin = "10px 16px";
+  back.addEventListener("click", () => { state.histDetail = null; renderJobs(); });
+  box.appendChild(back);
+  const wrap = document.createElement("div"); wrap.className = "hist-detail";
+  wrap.innerHTML = `<h4>${escapeHtml(h.title)}</h4>`
+    + `<div class="meta">${fmtDate(h.created_at)}${h.duration ? " · " + fmtDur(h.duration) : ""}`
+    + ` · ${(h.categories || []).map(c => Object.keys(HIST_CATS).find(k => HIST_CATS[k] === c) || c).join(" / ")}</div>`;
+  const row = document.createElement("div"); row.className = "row";
+  const mk = (label, fn) => { const b = document.createElement("button"); b.className = "btn ghost sm"; b.textContent = label; b.addEventListener("click", fn); row.appendChild(b); };
+  mk("打开记录", () => { $("#jobs-overlay").hidden = true; openDetail(id); });
+  if ((h.categories || []).includes("mindmap")) {
+    mk("查看脑图", () => { $("#jobs-overlay").hidden = true; openDetail(id); setTimeout(() => openMindmap(false), 500); });
+  }
+  if ((h.categories || []).includes("essay")) {
+    let shown = false;
+    mk("查看随笔", async () => {
+      if (shown) return;
+      try {
+        const r = await api(`/api/tasks/${id}/essay`);
+        const pre = document.createElement("div"); pre.className = "hist-essay"; pre.textContent = r.essay;
+        wrap.insertBefore(pre, row); shown = true;
+      } catch (e) { toast("读取随笔失败:" + e.message); }
+    });
+  }
+  if ((h.categories || []).includes("visual")) {
+    mk("查看视觉化", async () => {
+      try {
+        const r = await api(`/api/tasks/${id}/visuals`);
+        const list = document.createElement("div");
+        (r.visuals || []).forEach(v => {
+          const item = document.createElement("div"); item.className = "vis-item";
+          item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
+            + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span></div>`
+            + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
+          item.addEventListener("click", () => openVisual(v, id));
+          list.appendChild(item);
+        });
+        wrap.appendChild(list);
+      } catch (e) { toast("读取视觉化失败:" + e.message); }
+    });
+  }
+  wrap.appendChild(row);
+  box.appendChild(wrap);
 }
 async function jobPause(id, paused) { try { await api(`/api/tasks/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused }) }); await fetchTasks(); renderJobs(); toast(paused ? "已暂停" : "已继续"); } catch (e) { toast("操作失败:" + e.message); } }
 async function jobCancel(id) { if (!confirm("终止任务?进行中的工作会立刻停止并丢弃结果。")) return; try { await api(`/api/tasks/${id}/cancel`, { method: "POST" }); await fetchTasks(); renderJobs(); } catch (e) { toast("终止失败:" + e.message); } }
@@ -1265,11 +1469,27 @@ function updateFab() {
   fab.classList.toggle("attention", !running && awaiting > 0);
 }
 let jobsPoll = null;
-function openJobs() {
-  $("#jobs-overlay").hidden = false; renderJobs();
+async function openJobs() {
+  $("#jobs-overlay").hidden = false;
+  state.histDetail = null;
+  await loadHistory(); renderJobs();
   if (jobsPoll) clearInterval(jobsPoll);
-  jobsPoll = setInterval(async () => { if ($("#jobs-overlay").hidden) { clearInterval(jobsPoll); jobsPoll = null; return; } await fetchTasks(); renderJobs(); }, 2000);
+  jobsPoll = setInterval(async () => {
+    if ($("#jobs-overlay").hidden) { clearInterval(jobsPoll); jobsPoll = null; return; }
+    await fetchTasks();
+    if (!state.histDetail) renderJobs();
+  }, 3000);
 }
+$("#jobs-clear").addEventListener("change", async e => {
+  const days = parseInt(e.target.value, 10); e.target.value = "";
+  if (!days) return;
+  if (!confirm(`清理 ${days} 天前的所有记录?将删除这些录音、转写与衍生内容,不可恢复。`)) return;
+  try {
+    const r = await api(`/api/tasks?before_days=${days}`, { method: "DELETE" });
+    toast(`已清理 ${r.removed} 条记录`, 4000);
+    await loadHistory(); await fetchTasks(); renderJobs();
+  } catch (err) { toast("清理失败:" + err.message, 5000); }
+});
 $("#jobs-close").addEventListener("click", () => ($("#jobs-overlay").hidden = true));
 $("#job-fab").addEventListener("click", openJobs);
 $("#nav-jobs").addEventListener("click", openJobs);
