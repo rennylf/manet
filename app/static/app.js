@@ -21,6 +21,7 @@ const state = {
   folders: [], folderFilter: null, translatePoll: null, burnPoll: null,
   derivPoll: null, seenMindmap: false, seenEssay: false,
   homeAnim: false,   // 目录行入场动画开关:仅显式渲染(进首页/切文件夹)触发
+  reading: localStorage.getItem("tw_reading") === "1", marks: [],
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -227,7 +228,7 @@ function openDetail(taskId) {
   state.view = "detail"; state.taskId = taskId;
   state.analysis = null; state.sentences = []; state.paras = [];
   state.chatMessages = []; state.translation = null;
-  state.seenMindmap = false; state.seenEssay = false;
+  state.seenMindmap = false; state.seenEssay = false; state.marks = [];
   activeParaIdx = -1; playerReadyFor = null; exitEditMode();
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
@@ -235,7 +236,7 @@ function openDetail(taskId) {
   $("#ai-content").innerHTML = '<div class="empty-hint">点击右上角「AI 解读」,<br>生成摘要、章节速览、待办与关键词。</div>';
   $("#ai-status").hidden = true; switchTab("ai");
   $("#btn-analyze").disabled = true; $("#btn-mindmap").disabled = true; $("#btn-translate").disabled = true; $("#btn-essay").disabled = true; $("#btn-aititle").disabled = true;
-  renderSidebar(); pollTask(); loadNotes();
+  renderSidebar(); pollTask(); loadNotes(); loadHighlights();
 }
 $("#nav-home").addEventListener("click", showHome);
 $("#btn-back").addEventListener("click", showHome);
@@ -409,13 +410,99 @@ function renderTranscript() {
   btn.disabled = state.displayMode === "zh" && !!state.translation;
   btn.title = btn.disabled ? "请切回「原文」视图再编辑" : "";
   applyTranscriptSearch();
+  applyMarks();
 }
 $("#transcript").addEventListener("click", e => {
   if (state.editing || e.target.isContentEditable) return;
+  const ts = e.target.closest(".ts");
+  if (ts) {                          // 时间戳始终可跳转(阅读模式下保留)
+    const para = ts.closest(".para");
+    if (para) seekTo(state.paras[+para.dataset.pi].start);
+    return;
+  }
+  if (state.reading) return;         // 阅读模式:点正文不跳转,便于选择与标注
   const seg = e.target.closest(".seg"), para = e.target.closest(".para");
   const target = seg ? state.sentences[+seg.dataset.idx] : para ? state.sentences[state.paras[+para.dataset.pi].items[0]] : null;
   if (target) seekTo(target.start);
 });
+
+/* ============ 阅读模式 + 正文标注 ============ */
+async function loadHighlights() {
+  try {
+    const r = await api(`/api/tasks/${state.taskId}/highlights`);
+    state.marks = r.marks || [];
+  } catch { state.marks = []; }
+  applyMarks();
+}
+function applyMarks() {
+  const box = $("#transcript"); if (!box) return;
+  box.querySelectorAll(".seg").forEach(el => el.classList.remove("hl-brown", "hl-sage"));
+  for (const m of state.marks) {
+    const cls = m.color === "sage" ? "hl-sage" : "hl-brown";
+    for (let i = m.start; i <= m.end; i++) {
+      const seg = box.querySelector(`.seg[data-idx="${i}"]`);
+      if (seg) seg.classList.add(cls);
+    }
+  }
+}
+async function saveMarks() {
+  try {
+    await api(`/api/tasks/${state.taskId}/highlights`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marks: state.marks }),
+    });
+  } catch (e) { toast("标注保存失败:" + e.message, 5000); }
+}
+function setReading(on) {
+  state.reading = on; localStorage.setItem("tw_reading", on ? "1" : "0");
+  $("#transcript").classList.toggle("reading", on);
+  $("#btn-read").classList.toggle("on", on);
+  if (!on) hideHlBar();
+}
+$("#btn-read").addEventListener("click", () => setReading(!state.reading));
+
+const hlBar = $("#hl-toolbar");
+function hideHlBar() { hlBar.hidden = true; }
+function selectedRange() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0), box = $("#transcript");
+  if (!box.contains(range.commonAncestorContainer)) return null;
+  let idxs = [];
+  box.querySelectorAll(".seg[data-idx]").forEach(seg => { if (sel.containsNode(seg, true)) idxs.push(+seg.dataset.idx); });
+  if (!idxs.length) {                 // 选区落在句首/句尾空白 → 按包围盒兜底
+    const r = range.getBoundingClientRect();
+    box.querySelectorAll(".seg[data-idx]").forEach(seg => {
+      const b = seg.getBoundingClientRect();
+      if (b.bottom > r.top && b.top < r.bottom) idxs.push(+seg.dataset.idx);
+    });
+  }
+  if (!idxs.length) return null;
+  return { start: Math.min(...idxs), end: Math.max(...idxs), rect: range.getBoundingClientRect() };
+}
+$("#transcript").addEventListener("mouseup", () => setTimeout(() => {
+  if (!state.reading || state.editing) { hideHlBar(); return; }
+  const r = selectedRange();
+  if (!r) { hideHlBar(); return; }
+  hlBar.hidden = false;
+  hlBar.style.left = Math.max(8, Math.min(r.rect.left, window.innerWidth - hlBar.offsetWidth - 8)) + "px";
+  hlBar.style.top = Math.max(8, r.rect.top - 44) + "px";
+}, 0));
+hlBar.addEventListener("mousedown", e => e.preventDefault());   // 点浮条不丢选区
+hlBar.querySelectorAll(".hl-dot").forEach(b => b.addEventListener("click", async () => {
+  const r = selectedRange(); if (!r) return;
+  state.marks.push({ start: r.start, end: r.end, color: b.dataset.color });
+  applyMarks(); hideHlBar(); await saveMarks();
+}));
+$("#hl-remove").addEventListener("click", async () => {
+  const r = selectedRange(); if (!r) return;
+  state.marks = state.marks.filter(m => m.end < r.start || m.start > r.end);
+  applyMarks(); hideHlBar(); await saveMarks();
+});
+document.addEventListener("mousedown", e => {
+  if (!e.target.closest("#hl-toolbar") && !e.target.closest("#transcript")) hideHlBar();
+});
+$("#transcript").addEventListener("scroll", hideHlBar);
 
 /* 播放高亮 + 滚动 */
 let activeParaIdx = -1;
@@ -428,6 +515,7 @@ function highlightAt(t) {
   if (!segEl || segEl.classList.contains("active")) return;
   $$(".seg.active").forEach(el => el.classList.remove("active"));
   segEl.classList.add("active");
+  if (state.reading) return;          // 阅读模式不做跟随滚动
   const paraEl = segEl.closest(".para"), pi = +paraEl.dataset.pi, box = $("#transcript");
   // 滚动目标:让当前段落在「整个网页视口」垂直居中,而非转写框居中
   // (转写框上方有视频区/下方有播放栏,框内居中在页面上会偏下)
@@ -479,7 +567,9 @@ $("#btn-save-edit").addEventListener("click", async () => {
   })).filter(s => s.text);
   try {
     await api(`/api/tasks/${state.taskId}/transcript`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sentences: updated }) });
-    state.sentences = updated; exitEditMode(); renderTranscript(); toast("已保存");
+    const hadMarks = state.marks.length;
+    state.sentences = updated; state.marks = []; exitEditMode(); renderTranscript();
+    toast(hadMarks ? "已保存,原标注已随文本更新清空" : "已保存");
   } catch (e) { toast("保存失败:" + e.message); }
 });
 function exitEditMode() {
@@ -1047,4 +1137,4 @@ function saveChatLog() {
 }
 
 /* ================= 启动 ================= */
-applyTheme(); fetchTasks(); fetchFolders();
+setReading(state.reading); applyTheme(); fetchTasks(); fetchFolders();

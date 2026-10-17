@@ -477,8 +477,9 @@ def mark_edited(task_id: str, sentences: list[dict]):
     data["full_text"] = "".join(s["text"] for s in sentences)
     data["edited"] = True
     tr.save_result(task_id, data)
-    # 翻译/笔记/脑图/随笔按句索引或原文对齐,编辑后会错位 → 作废(用户笔记保留)
-    for name in (".translation.json", ".analysis.json", ".mindmap.json", ".essay.txt"):
+    # 翻译/笔记/脑图/随笔/标注按句索引或原文对齐,编辑后会错位 → 作废(用户笔记保留)
+    for name in (".translation.json", ".analysis.json", ".mindmap.json", ".essay.txt",
+                 ".highlights.json"):
         (config.RESULT_DIR / f"{task_id}{name}").unlink(missing_ok=True)
     with _lock:
         t = _tasks.get(task_id)

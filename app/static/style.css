@@ -100,6 +100,33 @@ body {
 .btn.sm { padding: 5px 11px; font-size: 12.5px; }
 .btn.danger { color: var(--danger); border-color: #E3C9C2; }
 .btn.danger:hover { background: #F6EDEA; }
+.btn.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+/* 阅读模式:正文可自由选中,不再有可点击的悬停暗示 */
+.reading .para { cursor: text; }
+.reading .para:hover { background: transparent; }
+
+/* 正文标注 */
+.seg.hl-brown { background: #EDE3D0; box-shadow: 0 0 0 1px #EDE3D0; }
+.seg.hl-sage { background: #E3ECE0; box-shadow: 0 0 0 1px #E3ECE0; }
+[data-theme="night"] .seg.hl-brown { background: #4A3F2E; box-shadow: 0 0 0 1px #4A3F2E; }
+[data-theme="night"] .seg.hl-sage { background: #33423A; box-shadow: 0 0 0 1px #33423A; }
+
+/* 选中文本后的标注浮条 */
+.hl-toolbar {
+  position: fixed; z-index: 90; display: flex; align-items: center; gap: 9px;
+  background: var(--paper2); border: 1px solid var(--border);
+  border-left: 2px solid var(--accent); border-radius: var(--radius);
+  padding: 6px 11px; box-shadow: 0 3px 14px rgba(41, 40, 36, .10);
+}
+.hl-label { font-size: 11px; color: var(--text-3); letter-spacing: 1px; }
+.hl-dot { width: 17px; height: 17px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(41,40,36,.15); }
+.hl-dot.brown { background: #806B50; }
+.hl-dot.sage { background: #6E8B5E; }
+.hl-dot:hover { transform: scale(1.08); }
+.hl-sep { width: 1px; height: 15px; background: var(--border); }
+.hl-remove { border: none; background: transparent; font-size: 11.5px; color: var(--text-2); cursor: pointer; letter-spacing: .5px; }
+.hl-remove:hover { color: var(--accent); }
 
 .side-btn { width: 100%; margin-bottom: 8px; justify-content: center; }
 

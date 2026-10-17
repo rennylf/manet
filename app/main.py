@@ -414,6 +414,36 @@ def api_export_essay(task_id: str):
     return {"ok": True, "path": str(out_path)}
 
 
+class HighlightsReq(BaseModel):
+    marks: list[dict]
+
+
+@app.get("/api/tasks/{task_id}/highlights")
+def api_get_highlights(task_id: str):
+    """正文标注(按句子索引区间存储)。"""
+    marks = load_json(config.RESULT_DIR / f"{task_id}.highlights.json")
+    return {"marks": marks or []}
+
+
+@app.put("/api/tasks/{task_id}/highlights")
+def api_put_highlights(task_id: str, body: HighlightsReq):
+    if tasks.get_task(task_id) is None:
+        raise HTTPException(404, "任务不存在")
+    clean = []
+    for m in body.marks[:500]:
+        try:
+            a, b = int(m.get("start")), int(m.get("end"))
+        except (TypeError, ValueError):
+            continue
+        if a < 0 or b < a:
+            continue
+        clean.append({"start": a, "end": b,
+                      "color": "sage" if m.get("color") == "sage" else "brown"})
+    (config.RESULT_DIR / f"{task_id}.highlights.json").write_text(
+        json.dumps(clean, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "count": len(clean)}
+
+
 class NotesReq(BaseModel):
     text: str
 
