@@ -621,39 +621,156 @@ def suggest_titles(sentences: list[dict], exclude: list[str] | None = None,
 _TS_HEAD_RE = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[—\-–:：、.]?\s*(.*)$")
 
 
-VISUAL_PROMPT = """你是信息设计师。把下面这段文本整理成一张「视觉卡片」的结构化数据,只输出 JSON 对象:
-{"title": "标题(≤18字)", "kicker": "副标题或主题词(≤20字)",
- "sections": [{"label": "分组名(≤8字)", "items": ["要点(≤28字)"]}],
- "footer": "一句话总结(≤24字)"}
+VISUAL_PROMPT = """你是资深信息设计师。把下面文本整理成一张信息图的结构化数据,只输出 JSON。
+输出结构:
+{"title":"", "kicker":"", "blocks":[...], "footer":""}
+
+先判断内容结构,再选择 2~5 个块,按版面顺序排列(总→分→总):
+1) 顶部概览(可选,放最前):{"type":"highlights","items":["一句结论", ...]} 2~4 条
+2) 主体(按内容真实结构选 1~3 个):
+   - 并列主题:{"type":"sections","items":[{"label":"分组名","points":["要点", ...]}]} 2~4 组
+   - 正反对照:{"type":"compare","left":{"label":"","tone":"positive","items":["..."]},"right":{"label":"","tone":"negative","items":["..."]}}
+   - 二维交叉(仅当文本确有两条独立的判断维度):{"type":"matrix","x":{"label":"横轴","low":"低","high":"高"},"y":{"label":"纵轴","low":"低","high":"高"},"cells":[{"title":"","desc":"","action":"","tone":"positive|neutral|negative"}, 共 4 个]} 顺序:左上、右上、左下、右下
+   - 有先后的步骤:{"type":"process","steps":[{"label":"","desc":""}]} 2~4 步
+   - 关键数字:{"type":"stats","items":[{"value":"","label":""}]} 2~4 个
+   - 值得原样引用的句子:{"type":"quote","text":"","source":""}
+3) 结尾(建议):{"type":"takeaway","title":"结论","text":"一句话"}
+
 要求:
-- 2~4 个分组,每组 2~4 条要点;
-- 提炼主旨、关键事实与结论,不编造;
-- 使用与文本相同的语言;
-- 只输出 JSON,不要任何其他内容。
+- 内容必须来自文本,不编造;标题 ≤22 字,摘要 ≤30 字,每条要点 ≤45 字,引文 ≤80 字。
+- 不要把所有内容都塞进 sections:有对立就用 compare,有步骤就用 process,有明确数字就用 stats。
+- 概览条写整篇的结论,不要复述章节标题。
+- footer 用一句话点出全文逻辑(≤30 字)。
+- 使用与文本相同的语言。只输出 JSON。
 
 文本:
 {text}"""
 
 
+def _vtxt(v, n: int) -> str:
+    return str(v or "").strip()[:n]
+
+
+def _vtone(v) -> str:
+    v = str(v or "").strip().lower()
+    return v if v in ("positive", "negative", "neutral") else "neutral"
+
+
 def _clean_visual(spec) -> dict:
+    """校验/收敛 AI 输出的语义 blocks;兼容旧的 sections 结构。"""
     if not isinstance(spec, dict):
         raise LLMError("AI 未返回有效的视觉化结构")
-    sections = []
-    for s in (spec.get("sections") or [])[:4]:
-        if not isinstance(s, dict):
+    raw = spec.get("blocks")
+    if not isinstance(raw, list) or not raw:
+        raw = [{"type": "sections", "items": spec.get("sections") or []}]
+    blocks: list[dict] = []
+
+    for b in raw[:6]:
+        if not isinstance(b, dict):
             continue
-        label = str(s.get("label") or "").strip()[:16]
-        items = [str(x).strip()[:60] for x in (s.get("items") or [])
-                 if str(x).strip()][:5]
-        if label and items:
-            sections.append({"label": label, "items": items})
-    if not sections:
+        t = b.get("type")
+
+        if t == "highlights":
+            items = [_vtxt(x, 45) for x in (b.get("items") or []) if _vtxt(x, 45)][:4]
+            if len(items) >= 2:
+                blocks.append({"type": "highlights", "items": items})
+
+        elif t == "sections":
+            secs = []
+            for s in (b.get("items") or [])[:4]:
+                if not isinstance(s, dict):
+                    continue
+                label = _vtxt(s.get("label"), 14)
+                pts = [_vtxt(x, 60) for x in (s.get("points") or s.get("items") or [])
+                       if _vtxt(x, 60)][:4]
+                if label and pts:
+                    secs.append({"label": label, "points": pts})
+            if secs:
+                blocks.append({"type": "sections", "items": secs})
+
+        elif t == "compare":
+            def side(x, tone):
+                if not isinstance(x, dict):
+                    return None
+                label = _vtxt(x.get("label"), 12)
+                items = [_vtxt(i, 45) for i in (x.get("items") or []) if _vtxt(i, 45)][:4]
+                if not label or not items:
+                    return None
+                return {"label": label, "items": items,
+                        "tone": _vtone(x.get("tone") or tone)}
+            left = side(b.get("left"), "positive")
+            right = side(b.get("right"), "negative")
+            if left and right:
+                blocks.append({"type": "compare", "left": left, "right": right})
+
+        elif t == "matrix":
+            cells = []
+            for c in (b.get("cells") or [])[:4]:
+                if not isinstance(c, dict):
+                    continue
+                title = _vtxt(c.get("title"), 14)
+                if not title:
+                    continue
+                cells.append({"title": title,
+                              "desc": _vtxt(c.get("desc"), 50),
+                              "action": _vtxt(c.get("action"), 24),
+                              "tone": _vtone(c.get("tone"))})
+            if len(cells) == 4:
+                x = b.get("x") if isinstance(b.get("x"), dict) else {}
+                y = b.get("y") if isinstance(b.get("y"), dict) else {}
+                blocks.append({
+                    "type": "matrix",
+                    "x": {"label": _vtxt(x.get("label"), 10),
+                          "low": _vtxt(x.get("low"), 8),
+                          "high": _vtxt(x.get("high"), 8)},
+                    "y": {"label": _vtxt(y.get("label"), 10),
+                          "low": _vtxt(y.get("low"), 8),
+                          "high": _vtxt(y.get("high"), 8)},
+                    "cells": cells})
+
+        elif t == "process":
+            steps = []
+            for s in (b.get("steps") or [])[:4]:
+                if not isinstance(s, dict):
+                    continue
+                label = _vtxt(s.get("label"), 14)
+                if label:
+                    steps.append({"label": label, "desc": _vtxt(s.get("desc"), 40)})
+            if len(steps) >= 2:
+                blocks.append({"type": "process", "steps": steps})
+
+        elif t == "stats":
+            items = []
+            for s in (b.get("items") or [])[:4]:
+                if not isinstance(s, dict):
+                    continue
+                value = _vtxt(s.get("value"), 10)
+                label = _vtxt(s.get("label"), 24)
+                if value and label:
+                    items.append({"value": value, "label": label})
+            if len(items) >= 2:
+                blocks.append({"type": "stats", "items": items})
+
+        elif t == "quote":
+            text = _vtxt(b.get("text"), 100)
+            if text:
+                blocks.append({"type": "quote", "text": text,
+                               "source": _vtxt(b.get("source"), 30)})
+
+        elif t == "takeaway":
+            text = _vtxt(b.get("text"), 80)
+            if text:
+                blocks.append({"type": "takeaway",
+                               "title": _vtxt(b.get("title"), 12) or "结论",
+                               "text": text})
+
+    if not blocks:
         raise LLMError("AI 未返回有效的视觉化结构")
     return {
-        "title": str(spec.get("title") or "未命名").strip()[:40],
-        "kicker": str(spec.get("kicker") or "").strip()[:40],
-        "sections": sections,
-        "footer": str(spec.get("footer") or "").strip()[:60],
+        "title": _vtxt(spec.get("title"), 40) or "未命名",
+        "kicker": _vtxt(spec.get("kicker"), 40),
+        "blocks": blocks,
+        "footer": _vtxt(spec.get("footer"), 60),
     }
 
 

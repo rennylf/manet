@@ -1212,33 +1212,7 @@ $("#essay-export-obsidian").addEventListener("click", async () => {
 
 /* ================= 视觉化 ================= */
 /* 服务端只产出结构化 spec,前端按 Manet 规范渲染为矢量卡片(SVG) */
-function visualSVG(spec) {
-  spec = spec || {};
-  const secs = (spec.sections || []).slice(0, 4);
-  const rowH = secs.map(s => Math.max(2, (s.items || []).length) * 46 + 64);
-  const H = 460 + rowH.reduce((a, b) => a + b, 0) + 110;
-  let y = 326, body = "";
-  secs.forEach((s, i) => {
-    const h = rowH[i];
-    body += `<rect x="90" y="${y}" width="900" height="${h}" rx="3" fill="#FFFFFF" stroke="#E4E0D7"/>`
-      + `<text x="118" y="${y + 40}" font-size="22" letter-spacing="6" fill="#806B50">${escapeHtml(s.label || "")}</text>`
-      + (s.items || []).slice(0, 5).map((it, j) =>
-        `<text x="118" y="${y + 86 + j * 46}" font-size="21" fill="#292824">· ${escapeHtml(it)}</text>`).join("");
-    y += h + 20;
-  });
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 ${H}" width="1080" height="${H}">`
-    + `<rect width="1080" height="${H}" fill="#F7F5F0"/>`
-    + `<g fill="none" stroke="#806B50" stroke-width="1.5" stroke-linecap="round" transform="translate(90,62) scale(1.5)"><path d="M8 11.5a4 4 0 0 1 8 0"/><path d="M3 15.5q2.25 -3 4.5 0t4.5 0t4.5 0t4.5 0"/></g>`
-    + `<text x="136" y="88" font-family="Songti SC,serif" font-size="24" letter-spacing="3" fill="#292824">Manet</text>`
-    + `<text x="990" y="86" text-anchor="end" font-size="15" letter-spacing="3" fill="#ABA69A">VISUALISATION</text>`
-    + `<text x="90" y="196" font-family="Songti SC,serif" font-size="48" font-weight="700" fill="#292824">${escapeHtml(spec.title || "")}</text>`
-    + `<text x="90" y="242" font-size="21" fill="#858176">${escapeHtml(spec.kicker || "")}</text>`
-    + `<line x1="90" y1="276" x2="990" y2="276" stroke="#292824" stroke-width="1"/>`
-    + body
-    + `<text x="90" y="${H - 52}" font-family="Songti SC,serif" font-style="italic" font-size="19" fill="#858176">${escapeHtml(spec.footer || "")}</text>`
-    + `<text x="990" y="${H - 52}" text-anchor="end" font-size="13" letter-spacing="2" fill="#ABA69A">QUOD MANET, MANET.</text>`
-    + `</svg>`;
-}
+/* visualSVG 见 visual.js(语义 blocks → SVG 排版引擎) */
 function visualItemEl(v, taskId, onDelete) {
   const item = document.createElement("div"); item.className = "vis-item";
   item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
