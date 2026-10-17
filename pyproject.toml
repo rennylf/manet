@@ -35,9 +35,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rennylf/manet-local"
-Repository = "https://github.com/rennylf/manet-local"
-Issues = "https://github.com/rennylf/manet-local/issues"
+Homepage = "https://github.com/rennylf/manet"
+Repository = "https://github.com/rennylf/manet"
+Issues = "https://github.com/rennylf/manet/issues"
 
 [tool.uv]
 package = false

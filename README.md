@@ -82,8 +82,8 @@ Manet 是一场个人产品实验：探索知识工作者如何用语音与文�
 ## 快速开始
 
 ```bash
-git clone https://github.com/rennylf/manet-local.git
-cd manet-local
+git clone https://github.com/rennylf/manet.git
+cd manet
 uv sync          # 安装依赖（首次）
 ./start.sh       # macOS 启动，浏览器打开 http://127.0.0.1:8642
 ```
