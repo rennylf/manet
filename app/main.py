@@ -126,6 +126,17 @@ def api_regen_visual(task_id: str, vid: str):
     return {"queued": True}
 
 
+@app.delete("/api/tasks/{task_id}/visuals/{vid}")
+def api_delete_visual(task_id: str, vid: str):
+    try:
+        tasks.delete_visual(task_id, vid)
+    except KeyError:
+        raise HTTPException(404, "视觉化条目不存在")
+    except ValueError as err:
+        raise HTTPException(409, str(err))
+    return {"ok": True}
+
+
 @app.get("/api/history")
 def api_history():
     """任务中心历史:每条记录附已产出内容分类,供筛选与详情。"""

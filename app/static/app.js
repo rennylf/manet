@@ -556,8 +556,8 @@ function annotStartTs(start) {
 function renderAnnotList() {
   const box = $("#annot-list"); if (!box) return;
   const items = [
-    ...state.marks.map(m => ({ ...m, kind: "hl" })),
-    ...state.comments.map(c => ({ ...c, kind: "cm" })),
+    ...state.marks.map((m, i) => ({ ...m, kind: "hl", _i: i })),
+    ...state.comments.map((c, i) => ({ ...c, kind: "cm", _i: i })),
   ].sort((a, b) => a.start - b.start);
   const cnt = $("#annot-count");
   if (cnt) cnt.textContent = items.length ? String(items.length) : "";
@@ -577,11 +577,18 @@ function renderAnnotList() {
       `<span class="an-time">${fmtTs(annotStartTs(it.start))}</span></div>` +
       `<div class="an-text">${escapeHtml(snippet)}</div>` +
       (it.kind === "cm" ? `<div class="an-cmt">${escapeHtml(it.text)}</div>` : "") +
-      `<div class="an-acts"><button class="an-copy">复制</button><button class="an-locate">定位</button></div>`;
+      `<div class="an-acts"><button class="an-copy">复制</button><button class="an-locate">定位</button>` +
+      `<button class="an-del">删除</button></div>`;
     row.querySelector(".an-copy").addEventListener("click", () => {
       copyText(it.kind === "cm" ? `${quoteText}\n${it.text}` : quoteText);
     });
     row.querySelector(".an-locate").addEventListener("click", () => locateAnnot(it.start));
+    row.querySelector(".an-del").addEventListener("click", async () => {
+      if (it.kind === "hl") state.marks.splice(it._i, 1);
+      else state.comments.splice(it._i, 1);
+      applyAnnots(); renderAnnotList(); await saveAnnots();
+      toast("已删除批注", 2000);
+    });
     box.appendChild(row);
   }
 }
@@ -1232,6 +1239,24 @@ function visualSVG(spec) {
     + `<text x="990" y="${H - 52}" text-anchor="end" font-size="13" letter-spacing="2" fill="#ABA69A">QUOD MANET, MANET.</text>`
     + `</svg>`;
 }
+function visualItemEl(v, taskId, onDelete) {
+  const item = document.createElement("div"); item.className = "vis-item";
+  item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
+    + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span>`
+    + `<button class="vis-del" title="删除"><svg class="icon icon-14"><use href="#i-close"/></svg></button></div>`
+    + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
+  item.addEventListener("click", () => openVisual(v, taskId));
+  item.querySelector(".vis-del").addEventListener("click", async e => {
+    e.stopPropagation();
+    try {
+      await api(`/api/tasks/${taskId}/visuals/${v.id}`, { method: "DELETE" });
+      item.remove();
+      toast("已删除视觉化", 2400);
+      onDelete && onDelete(v);
+    } catch (err) { toast("删除失败:" + err.message, 4000); }
+  });
+  return item;
+}
 function renderVisualList() {
   const box = $("#visual-list"); if (!box) return;
   const cnt = $("#visual-count");
@@ -1242,12 +1267,10 @@ function renderVisualList() {
   }
   box.innerHTML = "";
   [...state.visuals].sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).forEach(v => {
-    const item = document.createElement("div"); item.className = "vis-item";
-    item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
-      + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span></div>`
-      + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
-    item.addEventListener("click", () => openVisual(v));
-    box.appendChild(item);
+    box.appendChild(visualItemEl(v, state.taskId, () => {
+      state.visuals = state.visuals.filter(x => x.id !== v.id);
+      renderVisualList(); updateDerivBadges();
+    }));
   });
 }
 async function loadVisuals() {
@@ -1435,12 +1458,7 @@ async function renderHistoryDetail(box, id) {
         const r = await api(`/api/tasks/${id}/visuals`);
         const list = document.createElement("div");
         (r.visuals || []).forEach(v => {
-          const item = document.createElement("div"); item.className = "vis-item";
-          item.innerHTML = `<div class="vis-head"><span class="vis-title">${escapeHtml(v.title || "视觉化")}</span>`
-            + `<span class="vis-kind">${v.kind === "selection" ? "节选" : "全文"}</span></div>`
-            + `<div class="vis-thumb">${visualSVG(v.spec)}</div>`;
-          item.addEventListener("click", () => openVisual(v, id));
-          list.appendChild(item);
+          list.appendChild(visualItemEl(v, id, () => loadHistory().then(() => renderJobs())));
         });
         wrap.appendChild(list);
       } catch (e) { toast("读取视觉化失败:" + e.message); }

@@ -428,6 +428,25 @@ def request_visual_regen(task_id: str, vid: str):
     _enqueue(task_id, "visual")
 
 
+def delete_visual(task_id: str, vid: str):
+    """删除一条视觉化记录;生成中不允许删除,避免与写入竞争。"""
+    with _lock:
+        task = _tasks.get(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        if task.get("visual_status") == "running":
+            raise ValueError("正在生成中,请稍候")
+        path = config.RESULT_DIR / f"{task_id}.visuals.json"
+        if not path.exists():
+            raise KeyError(vid)
+        items = json.loads(path.read_text(encoding="utf-8"))
+        remain = [x for x in items if x.get("id") != vid]
+        if len(remain) == len(items):
+            raise KeyError(vid)
+        path.write_text(json.dumps(remain, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
+
+
 def next_ai_title(task_id: str) -> str:
     """标题优化:每次调用返回一个与历史不重复的新标题。
 
