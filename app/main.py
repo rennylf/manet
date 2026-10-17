@@ -656,6 +656,36 @@ def api_export_md(task_id: str, body: ExportMdReq):
                            for i in items).strip()
         return "".join(sentences[i]["text"] for i in items).strip()
 
+    annots = load_json(config.RESULT_DIR / f"{task_id}.highlights.json") or {}
+    if isinstance(annots, list):
+        annots = {"marks": annots, "comments": []}
+    marks = annots.get("marks", [])
+    comments = annots.get("comments", [])
+
+    # 勾选高亮/评论时,在原文对应句段包上 ==高亮== 标记(Obsidian 语法)
+    mark_ranges: list[tuple[int, int]] = []
+    if c.get("highlights"):
+        mark_ranges += [(int(m["start"]), int(m["end"])) for m in marks]
+    if c.get("comments"):
+        mark_ranges += [(int(cm["start"]), int(cm["end"])) for cm in comments]
+
+    def in_marks(i: int) -> bool:
+        return any(a <= i <= b for a, b in mark_ranges)
+
+    def para_text_marked(items: list[int]) -> str:
+        out: list[str] = []
+        i = 0
+        while i < len(items):
+            marked = in_marks(items[i])
+            run = [items[i]]
+            i += 1
+            while i < len(items) and in_marks(items[i]) == marked:
+                run.append(items[i])
+                i += 1
+            t = para_text(run, "orig")
+            out.append(f"=={t}==" if marked else t)
+        return "".join(out)
+
     md: list[str] = [f"# {title}", ""]
     if want_orig or want_zh:
         paras = _group_paragraphs(sentences)
@@ -663,23 +693,17 @@ def api_export_md(task_id: str, body: ExportMdReq):
             md += ["## 正文", ""]
             for p in paras:
                 pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
-                md += [pre + para_text(p["items"], "orig"), "", "> " + para_text(p["items"], "zh"), ""]
+                md += [pre + para_text_marked(p["items"]), "", "> " + para_text(p["items"], "zh"), ""]
         elif want_orig:
             md += ["## 原文", ""]
             for p in paras:
                 pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
-                md += [pre + para_text(p["items"], "orig"), ""]
+                md += [pre + para_text_marked(p["items"]), ""]
         else:
             md += ["## 译文", ""]
             for p in paras:
                 pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
                 md += [pre + para_text(p["items"], "zh"), ""]
-
-    annots = load_json(config.RESULT_DIR / f"{task_id}.highlights.json") or {}
-    if isinstance(annots, list):
-        annots = {"marks": annots, "comments": []}
-    marks = annots.get("marks", [])
-    comments = annots.get("comments", [])
     if c.get("highlights") and marks:
         md += ["## 高亮", ""]
         for m in marks:
