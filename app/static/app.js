@@ -453,7 +453,7 @@ function seekTo(sec) {
   if (!player.src || !isFinite(sec)) return;
   player.currentTime = sec + 0.01;
   const p = player.play(); if (p?.catch) p.catch(() => {});
-  highlightAt(sec); toast("已跳转 " + fmtTs(sec, true));
+  highlightAt(sec);
 }
 
 /* 搜索 */
