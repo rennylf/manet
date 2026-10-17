@@ -21,7 +21,8 @@ const state = {
   folders: [], folderFilter: null, translatePoll: null, burnPoll: null,
   derivPoll: null, seenMindmap: false, seenEssay: false,
   homeAnim: false,   // 目录行入场动画开关:仅显式渲染(进首页/切文件夹)触发
-  reading: localStorage.getItem("tw_reading") === "1", marks: [],
+  reading: localStorage.getItem("tw_reading") === "1",
+  marks: [], comments: [], pendingRange: null, lastSel: null,
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -228,7 +229,8 @@ function openDetail(taskId) {
   state.view = "detail"; state.taskId = taskId;
   state.analysis = null; state.sentences = []; state.paras = [];
   state.chatMessages = []; state.translation = null;
-  state.seenMindmap = false; state.seenEssay = false; state.marks = [];
+  state.seenMindmap = false; state.seenEssay = false;
+  state.marks = []; state.comments = []; state.pendingRange = null;
   activeParaIdx = -1; playerReadyFor = null; exitEditMode();
   $("#view-home").hidden = true; $("#view-detail").hidden = false;
   $("#chat-messages").innerHTML = '<div class="empty-hint">就这段录音提问…</div>';
@@ -410,7 +412,7 @@ function renderTranscript() {
   btn.disabled = state.displayMode === "zh" && !!state.translation;
   btn.title = btn.disabled ? "请切回「原文」视图再编辑" : "";
   applyTranscriptSearch();
-  applyMarks();
+  applyAnnots();
 }
 $("#transcript").addEventListener("click", e => {
   if (state.editing || e.target.isContentEditable) return;
@@ -426,43 +428,51 @@ $("#transcript").addEventListener("click", e => {
   if (target) seekTo(target.start);
 });
 
-/* ============ 阅读模式 + 正文标注 ============ */
+/* ============ 阅读模式 + 批注(高亮 / 评论) ============ */
 async function loadHighlights() {
   try {
     const r = await api(`/api/tasks/${state.taskId}/highlights`);
     state.marks = r.marks || [];
-  } catch { state.marks = []; }
-  applyMarks();
+    state.comments = r.comments || [];
+  } catch { state.marks = []; state.comments = []; }
+  applyAnnots(); renderAnnotList();
 }
-function applyMarks() {
+function applyAnnots() {
   const box = $("#transcript"); if (!box) return;
-  box.querySelectorAll(".seg").forEach(el => el.classList.remove("hl-brown", "hl-sage"));
-  for (const m of state.marks) {
-    const cls = m.color === "sage" ? "hl-sage" : "hl-brown";
-    for (let i = m.start; i <= m.end; i++) {
+  box.querySelectorAll(".seg").forEach(el => el.classList.remove("hl", "cm"));
+  const paint = (r, cls) => {
+    for (let i = r.start; i <= r.end; i++) {
       const seg = box.querySelector(`.seg[data-idx="${i}"]`);
       if (seg) seg.classList.add(cls);
     }
-  }
+  };
+  state.marks.forEach(m => paint(m, "hl"));       // 高亮:绿色底
+  state.comments.forEach(c => paint(c, "cm"));    // 评论:棕色虚线下划线
 }
-async function saveMarks() {
+async function saveAnnots() {
   try {
     await api(`/api/tasks/${state.taskId}/highlights`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ marks: state.marks }),
+      body: JSON.stringify({ marks: state.marks, comments: state.comments }),
     });
-  } catch (e) { toast("标注保存失败:" + e.message, 5000); }
+  } catch (e) { toast("批注保存失败:" + e.message, 5000); }
 }
 function setReading(on) {
   state.reading = on; localStorage.setItem("tw_reading", on ? "1" : "0");
   $("#transcript").classList.toggle("reading", on);
   $("#btn-read").classList.toggle("on", on);
-  if (!on) hideHlBar();
+  if (!on) { hideHlBar(); hideCmtEditor(); }
 }
 $("#btn-read").addEventListener("click", () => setReading(!state.reading));
 
-const hlBar = $("#hl-toolbar");
+const hlBar = $("#hl-toolbar"), cmtEditor = $("#cmt-editor");
 function hideHlBar() { hlBar.hidden = true; }
+function hideCmtEditor() { cmtEditor.hidden = true; state.pendingRange = null; }
+function placeFloat(el, rect) {
+  el.hidden = false;
+  el.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8)) + "px";
+  el.style.top = Math.max(8, rect.top - (el === cmtEditor ? 210 : 44)) + "px";
+}
 function selectedRange() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -484,25 +494,110 @@ $("#transcript").addEventListener("mouseup", () => setTimeout(() => {
   if (!state.reading || state.editing) { hideHlBar(); return; }
   const r = selectedRange();
   if (!r) { hideHlBar(); return; }
-  hlBar.hidden = false;
-  hlBar.style.left = Math.max(8, Math.min(r.rect.left, window.innerWidth - hlBar.offsetWidth - 8)) + "px";
-  hlBar.style.top = Math.max(8, r.rect.top - 44) + "px";
+  state.lastSel = r;
+  placeFloat(hlBar, r.rect);
 }, 0));
 hlBar.addEventListener("mousedown", e => e.preventDefault());   // 点浮条不丢选区
-hlBar.querySelectorAll(".hl-dot").forEach(b => b.addEventListener("click", async () => {
+hlBar.querySelector('[data-act="hl"]').addEventListener("click", async () => {
   const r = selectedRange(); if (!r) return;
-  state.marks.push({ start: r.start, end: r.end, color: b.dataset.color });
-  applyMarks(); hideHlBar(); await saveMarks();
-}));
+  state.marks.push({ start: r.start, end: r.end });
+  applyAnnots(); renderAnnotList(); hideHlBar(); await saveAnnots();
+});
+hlBar.querySelector('[data-act="cmt"]').addEventListener("click", () => {
+  const r = selectedRange(); if (!r) return;
+  state.pendingRange = { start: r.start, end: r.end };
+  hideHlBar();
+  $("#cmt-text").value = "";
+  placeFloat(cmtEditor, r.rect);
+  $("#cmt-text").focus();
+});
 $("#hl-remove").addEventListener("click", async () => {
   const r = selectedRange(); if (!r) return;
   state.marks = state.marks.filter(m => m.end < r.start || m.start > r.end);
-  applyMarks(); hideHlBar(); await saveMarks();
+  state.comments = state.comments.filter(c => c.end < r.start || c.start > r.end);
+  applyAnnots(); renderAnnotList(); hideHlBar(); await saveAnnots();
+});
+cmtEditor.addEventListener("mousedown", e => { if (!e.target.closest("textarea")) e.preventDefault(); });
+$("#cmt-cancel").addEventListener("click", hideCmtEditor);
+$("#cmt-save").addEventListener("click", async () => {
+  const text = $("#cmt-text").value.trim(), r = state.pendingRange;
+  if (!r || !text) { hideCmtEditor(); return; }
+  state.comments.push({ start: r.start, end: r.end, text });
+  hideCmtEditor(); applyAnnots(); renderAnnotList(); await saveAnnots();
+});
+$("#cmt-text").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("#cmt-save").click(); }
 });
 document.addEventListener("mousedown", e => {
-  if (!e.target.closest("#hl-toolbar") && !e.target.closest("#transcript")) hideHlBar();
+  if (!e.target.closest("#hl-toolbar") && !e.target.closest("#cmt-editor") && !e.target.closest("#transcript")) {
+    hideHlBar(); hideCmtEditor();
+  }
 });
 $("#transcript").addEventListener("scroll", hideHlBar);
+
+/* ---- 右栏「批注」清单 ---- */
+function annotSnippet(start, end) {
+  return state.sentences.slice(start, end + 1).map(s => s.text).join("");
+}
+function annotStartTs(start) {
+  return state.sentences[start] ? state.sentences[start].start : 0;
+}
+function renderAnnotList() {
+  const box = $("#annot-list"); if (!box) return;
+  const items = [
+    ...state.marks.map(m => ({ ...m, kind: "hl" })),
+    ...state.comments.map(c => ({ ...c, kind: "cm" })),
+  ].sort((a, b) => a.start - b.start);
+  const cnt = $("#annot-count");
+  if (cnt) cnt.textContent = items.length ? String(items.length) : "";
+  if (!items.length) {
+    box.innerHTML = '<div class="empty-hint">阅读模式下选中文本,可高亮或写下评论。<br>所有批注会汇总在这里。</div>';
+    return;
+  }
+  box.innerHTML = "";
+  for (const it of items) {
+    const full = annotSnippet(it.start, it.end);
+    const snippet = full.length > 90 ? full.slice(0, 90) + "…" : full;
+    const row = document.createElement("div");
+    row.className = "annot-item " + it.kind;
+    row.innerHTML =
+      `<div class="an-head"><span class="an-kind">${it.kind === "hl" ? "高亮" : "评论"}</span>` +
+      `<span class="an-time">${fmtTs(annotStartTs(it.start))}</span></div>` +
+      `<div class="an-text">${escapeHtml(snippet)}</div>` +
+      (it.kind === "cm" ? `<div class="an-cmt">${escapeHtml(it.text)}</div>` : "") +
+      `<div class="an-acts"><button class="an-copy">复制</button><button class="an-locate">定位</button></div>`;
+    row.querySelector(".an-copy").addEventListener("click", () => {
+      copyText(it.kind === "cm" ? `${full}\n${it.text}` : full);
+    });
+    row.querySelector(".an-locate").addEventListener("click", () => locateAnnot(it.start));
+    box.appendChild(row);
+  }
+}
+function copyText(text) {
+  const done = () => toast("已复制", 1600);
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch { toast("复制失败", 3000); }
+  ta.remove();
+}
+function locateAnnot(start) {
+  const box = $("#transcript");
+  const seg = box.querySelector(`.seg[data-idx="${start}"]`);
+  if (!seg) return;
+  const para = seg.closest(".para");
+  const r = box.getBoundingClientRect();
+  const el = para || seg;
+  const target = Math.max(0, el.offsetTop + el.offsetHeight / 2 - (window.innerHeight / 2 - r.top));
+  box.scrollTo({ top: target, behavior: "smooth" });
+  box.querySelectorAll(".locate-flash").forEach(x => x.classList.remove("locate-flash"));
+  el.classList.add("locate-flash");
+  setTimeout(() => el.classList.remove("locate-flash"), 1800);
+}
 
 /* 播放高亮 + 滚动 */
 let activeParaIdx = -1;
@@ -567,9 +662,10 @@ $("#btn-save-edit").addEventListener("click", async () => {
   })).filter(s => s.text);
   try {
     await api(`/api/tasks/${state.taskId}/transcript`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sentences: updated }) });
-    const hadMarks = state.marks.length;
-    state.sentences = updated; state.marks = []; exitEditMode(); renderTranscript();
-    toast(hadMarks ? "已保存,原标注已随文本更新清空" : "已保存");
+    const hadAnnots = state.marks.length + state.comments.length;
+    state.sentences = updated; state.marks = []; state.comments = [];
+    exitEditMode(); renderTranscript(); renderAnnotList();
+    toast(hadAnnots ? "已保存,原批注已随文本更新清空" : "已保存");
   } catch (e) { toast("保存失败:" + e.message); }
 });
 function exitEditMode() {
@@ -757,7 +853,11 @@ async function loadAnalysis() {
 }
 
 /* ================= Tab 切换 ================= */
-function switchTab(name) { $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name)); ["ai", "chat", "notes"].forEach(n => ($("#tab-" + n).hidden = n !== name)); }
+function switchTab(name) {
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  ["ai", "chat", "notes", "annot"].forEach(n => ($("#tab-" + n).hidden = n !== name));
+  if (name === "annot") renderAnnotList();
+}
 $$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
 /* ================= 问答 ================= */

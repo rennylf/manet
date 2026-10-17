@@ -106,27 +106,56 @@ body {
 .reading .para { cursor: text; }
 .reading .para:hover { background: transparent; }
 
-/* 正文标注 */
-.seg.hl-brown { background: #EDE3D0; box-shadow: 0 0 0 1px #EDE3D0; }
-.seg.hl-sage { background: #E3ECE0; box-shadow: 0 0 0 1px #E3ECE0; }
-[data-theme="night"] .seg.hl-brown { background: #4A3F2E; box-shadow: 0 0 0 1px #4A3F2E; }
-[data-theme="night"] .seg.hl-sage { background: #33423A; box-shadow: 0 0 0 1px #33423A; }
+/* 正文批注:高亮=单一鼠尾草绿底;评论=复古棕虚线下划线 */
+.seg.hl { background: #E3ECE0; box-shadow: 0 0 0 1px #E3ECE0; }
+[data-theme="night"] .seg.hl { background: #33423A; box-shadow: 0 0 0 1px #33423A; }
+.seg.cm { text-decoration: underline dashed var(--accent); text-decoration-thickness: 1px; text-underline-offset: 4px; }
 
-/* 选中文本后的标注浮条 */
+/* 选中文本后的批注浮条 */
 .hl-toolbar {
-  position: fixed; z-index: 90; display: flex; align-items: center; gap: 9px;
+  position: fixed; z-index: 90; display: flex; align-items: center; gap: 10px;
   background: var(--paper2); border: 1px solid var(--border);
   border-left: 2px solid var(--accent); border-radius: var(--radius);
   padding: 6px 11px; box-shadow: 0 3px 14px rgba(41, 40, 36, .10);
 }
-.hl-label { font-size: 11px; color: var(--text-3); letter-spacing: 1px; }
-.hl-dot { width: 17px; height: 17px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(41,40,36,.15); }
-.hl-dot.brown { background: #806B50; }
-.hl-dot.sage { background: #6E8B5E; }
-.hl-dot:hover { transform: scale(1.08); }
+.hl-btn { display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent;
+  font-size: 11.5px; color: var(--text); cursor: pointer; letter-spacing: .5px; padding: 0; }
+.hl-btn:hover { color: var(--accent); }
+.hl-dot { width: 13px; height: 13px; border-radius: 50%; background: #8FB58A; border: 1px solid rgba(41,40,36,.14); }
 .hl-sep { width: 1px; height: 15px; background: var(--border); }
 .hl-remove { border: none; background: transparent; font-size: 11.5px; color: var(--text-2); cursor: pointer; letter-spacing: .5px; }
-.hl-remove:hover { color: var(--accent); }
+.hl-remove:hover { color: var(--danger); }
+
+/* 评论编辑浮层 */
+.cmt-editor {
+  position: fixed; z-index: 91; width: 320px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--paper2); border: 1px solid var(--border); border-left: 2px solid var(--accent);
+  border-radius: var(--radius); padding: 10px 12px; box-shadow: 0 3px 14px rgba(41, 40, 36, .10);
+}
+.cmt-editor textarea {
+  width: 100%; resize: vertical; min-height: 64px; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 7px 9px; font-size: 12.5px; line-height: 1.7;
+  font-family: inherit; background: var(--field); color: var(--text);
+}
+.cmt-editor textarea:focus { outline: none; border-color: var(--accent); }
+.cmt-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* 批注清单(右栏) */
+.annot-list { flex: 1; overflow-y: auto; padding: 6px 16px 16px; }
+.annot-item { padding: 12px 2px; border-bottom: 1px solid var(--border); }
+.an-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.an-kind { font-size: 10.5px; color: var(--accent); letter-spacing: 1.5px; }
+.an-time { margin-left: auto; font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.an-text { font-family: var(--serif); font-size: 13.5px; line-height: 1.85; color: var(--text-2); }
+.annot-item.hl .an-text { color: var(--text); }
+.an-cmt { margin-top: 7px; font-size: 13px; line-height: 1.8; color: var(--text); border-left: 2px solid var(--accent-soft); padding-left: 10px; }
+.an-acts { display: flex; gap: 14px; margin-top: 8px; }
+.an-acts button { border: none; background: transparent; font-size: 11.5px; color: var(--text-2); cursor: pointer; letter-spacing: .5px; padding: 0; }
+.an-acts button:hover { color: var(--accent); }
+
+/* 定位闪烁 */
+.para.locate-flash { background: var(--accent-soft); border-radius: var(--radius); }
+.tab-count { font-size: 10px; color: var(--accent); margin-left: 3px; }
 
 .side-btn { width: 100%; margin-bottom: 8px; justify-content: center; }
 

@@ -415,33 +415,49 @@ def api_export_essay(task_id: str):
 
 
 class HighlightsReq(BaseModel):
-    marks: list[dict]
+    marks: list[dict] = []
+    comments: list[dict] = []
 
 
-@app.get("/api/tasks/{task_id}/highlights")
-def api_get_highlights(task_id: str):
-    """正文标注(按句子索引区间存储)。"""
-    marks = load_json(config.RESULT_DIR / f"{task_id}.highlights.json")
-    return {"marks": marks or []}
-
-
-@app.put("/api/tasks/{task_id}/highlights")
-def api_put_highlights(task_id: str, body: HighlightsReq):
-    if tasks.get_task(task_id) is None:
-        raise HTTPException(404, "任务不存在")
-    clean = []
-    for m in body.marks[:500]:
+def _clean_ranges(items: list[dict], max_text: int = 0) -> list[dict]:
+    out = []
+    for m in items[:500]:
         try:
             a, b = int(m.get("start")), int(m.get("end"))
         except (TypeError, ValueError):
             continue
         if a < 0 or b < a:
             continue
-        clean.append({"start": a, "end": b,
-                      "color": "sage" if m.get("color") == "sage" else "brown"})
+        item = {"start": a, "end": b}
+        if max_text:
+            text = str(m.get("text") or "").strip()[:max_text]
+            if not text:
+                continue
+            item["text"] = text
+        out.append(item)
+    return out
+
+
+@app.get("/api/tasks/{task_id}/highlights")
+def api_get_highlights(task_id: str):
+    """正文批注:高亮(marks)与评论(comments),按句子索引区间存储。"""
+    data = load_json(config.RESULT_DIR / f"{task_id}.highlights.json")
+    if isinstance(data, list):        # 旧格式:纯标注列表
+        return {"marks": data, "comments": []}
+    data = data or {}
+    return {"marks": data.get("marks", []), "comments": data.get("comments", [])}
+
+
+@app.put("/api/tasks/{task_id}/highlights")
+def api_put_highlights(task_id: str, body: HighlightsReq):
+    if tasks.get_task(task_id) is None:
+        raise HTTPException(404, "任务不存在")
+    marks = _clean_ranges(body.marks)
+    comments = _clean_ranges(body.comments, max_text=2000)
     (config.RESULT_DIR / f"{task_id}.highlights.json").write_text(
-        json.dumps(clean, ensure_ascii=False), encoding="utf-8")
-    return {"ok": True, "count": len(clean)}
+        json.dumps({"marks": marks, "comments": comments}, ensure_ascii=False),
+        encoding="utf-8")
+    return {"ok": True, "marks": len(marks), "comments": len(comments)}
 
 
 class NotesReq(BaseModel):

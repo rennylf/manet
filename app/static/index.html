@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -176,6 +176,7 @@
             <button class="tab active" data-tab="ai">解读</button>
             <button class="tab" data-tab="chat">问答</button>
             <button class="tab" data-tab="notes">札记</button>
+            <button class="tab" data-tab="annot">批注<span id="annot-count" class="tab-count"></span></button>
           </div>
           <div id="tab-ai" class="tab-pane">
             <div id="ai-status" class="ai-status" hidden></div>
@@ -195,6 +196,11 @@
           <div id="tab-notes" class="tab-pane" hidden>
             <textarea id="my-notes" class="my-notes" placeholder="此刻的理解,值得留下。自动保存…"></textarea>
             <div id="notes-status" class="notes-status"></div>
+          </div>
+          <div id="tab-annot" class="tab-pane" hidden>
+            <div id="annot-list" class="annot-list">
+              <div class="empty-hint">阅读模式下选中文本,可高亮或写下评论。<br>所有批注会汇总在这里。</div>
+            </div>
           </div>
         </div>
       </div>
@@ -402,13 +408,21 @@
   </div>
 </div>
 
-<!-- 阅读模式:选中文本后的标注浮条 -->
+<!-- 阅读模式:选中文本后的批注浮条 -->
 <div id="hl-toolbar" class="hl-toolbar" hidden>
-  <span class="hl-label">标注</span>
-  <button class="hl-dot brown" data-color="brown" title="标为关键"></button>
-  <button class="hl-dot sage" data-color="sage" title="标为待考"></button>
+  <button class="hl-btn" data-act="hl"><span class="hl-dot"></span>高亮</button>
+  <button class="hl-btn" data-act="cmt">评论</button>
   <span class="hl-sep"></span>
-  <button id="hl-remove" class="hl-remove" title="取消所选区间的高亮">取消</button>
+  <button id="hl-remove" class="hl-remove" title="取消所选区间的高亮与评论">取消</button>
+</div>
+
+<!-- 评论编辑浮层 -->
+<div id="cmt-editor" class="cmt-editor" hidden>
+  <textarea id="cmt-text" rows="3" placeholder="写下你的评论…(⌘/Ctrl+Enter 保存)"></textarea>
+  <div class="cmt-actions">
+    <button id="cmt-cancel" class="btn ghost sm">取消</button>
+    <button id="cmt-save" class="btn primary sm">保存</button>
+  </div>
 </div>
 
 <!-- 卡片管理菜单 -->
@@ -416,6 +430,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
