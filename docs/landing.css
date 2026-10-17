@@ -96,7 +96,7 @@ nav .gh { color: var(--accent); }
 .hero {
   display: grid; grid-template-columns: 1.04fr .96fr;
   gap: 78px; align-items: center;
-  padding-top: 106px; padding-bottom: 128px;
+  padding-top: 124px; padding-bottom: 184px;
 }
 .kicker {
   margin: 0 0 20px; font-size: 10.5px; letter-spacing: 3px;
@@ -178,16 +178,16 @@ h1 {
 .note-card p { margin: 0; font-family: var(--serif); color: var(--ink); }
 
 /* ---------- shared section ---------- */
-section { padding-bottom: 136px; }
+section { padding-bottom: 208px; }
 .section-index { margin: 0 0 20px; font-size: 10.5px; letter-spacing: 3px; color: var(--accent); }
 h2 {
-  margin: 0 0 24px; font-family: var(--serif); font-weight: 700;
+  margin: 0 0 28px; font-family: var(--serif); font-weight: 700;
   font-size: clamp(28px, 3.6vw, 42px); line-height: 1.35; letter-spacing: .5px;
 }
-.creed { padding-bottom: 140px; }
+.creed { padding-bottom: 208px; }
 .creed-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 96px; border-top: 1px solid var(--ink); padding-top: 40px; }
 .creed-grid h2 { margin: 0; }
-.creed-items { display: grid; gap: 28px; }
+.creed-items { display: grid; gap: 34px; }
 .creed-items h4 { margin: 0 0 4px; font-family: var(--serif); font-size: 16px; letter-spacing: .5px; }
 .creed-items p { margin: 0; font-size: 12.5px; line-height: 1.9; color: var(--sub); max-width: 400px; }
 
@@ -195,8 +195,8 @@ h2 {
 .feature { display: grid; grid-template-columns: 1fr 1fr; gap: 96px; align-items: start; padding-top: 16px; }
 .feature-visual { padding-top: 4px; }
 .feature.reverse .feature-copy { order: 2; }
-.feature-copy p { max-width: 480px; margin: 0 0 22px; color: var(--sub); line-height: 2.05; }
-.ticks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 11px; font-size: 12.5px; color: var(--ink); }
+.feature-copy p { max-width: 480px; margin: 0 0 26px; color: var(--sub); line-height: 2.05; }
+.ticks { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 13px; font-size: 12.5px; color: var(--ink); }
 .ticks li::before { content: "—"; margin-right: 10px; color: var(--accent); }
 
 .panel { background: var(--paper); border: 1px solid var(--border); border-radius: 6px; padding: 22px 24px; }
@@ -266,13 +266,13 @@ h2 {
 
 /* ---------- local ---------- */
 .local { background: var(--side); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-  padding-top: 108px; padding-bottom: 108px; margin-bottom: 136px; }
-.local-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; margin-top: 50px; }
+  padding-top: 128px; padding-bottom: 128px; margin-bottom: 208px; }
+.local-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; margin-top: 58px; }
 .local-item { border-top: 1px solid var(--ink); padding-top: 16px; }
 .local-item h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 18px; letter-spacing: .5px; }
 .local-item p { margin: 0; font-size: 12.5px; line-height: 1.9; color: var(--sub); }
 .local-item code { font-family: var(--mono); font-size: 11px; color: var(--accent); }
-.local-note { margin: 50px 0 0; font-family: var(--serif); font-size: 14px; color: var(--sub); letter-spacing: .3px; }
+.local-note { margin: 58px 0 0; font-family: var(--serif); font-size: 14px; color: var(--sub); letter-spacing: .3px; }
 
 /* ---------- start ---------- */
 .start { display: grid; grid-template-columns: 1fr 1fr; gap: 96px; align-items: center; }
@@ -283,7 +283,7 @@ h2 {
 .commands .c { color: var(--weak); }
 
 /* ---------- quote / footer ---------- */
-.quote { text-align: center; padding: 12px 40px 140px; }
+.quote { text-align: center; padding: 20px 40px 176px; }
 .quote-mark { margin: 0; font-family: var(--serif); font-size: 56px; line-height: .8; color: var(--accent); }
 .quote blockquote { margin: 12px 0 10px; font-family: var(--serif); font-size: clamp(26px, 3vw, 36px); letter-spacing: 2px; }
 .quote-latin { margin: 0; font-family: var(--serif); font-style: italic; font-size: 13px; letter-spacing: 2px; color: var(--weak); }
