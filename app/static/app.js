@@ -983,9 +983,6 @@ async function openSettings() {
     $("#set-key").value = s.llm_api_key || "";
     $("#set-asr").value = s.asr_engine || "whisper";
     $("#set-local-repo").value = s.local_model_repo || "";
-    $("#set-obsidian-path").value = s.obsidian_path || "";
-    const secs = new Set((s.obsidian_sections || "transcript,ai,chat,notes").split(",").map(x => x.trim()));
-    ["transcript", "ai", "chat", "notes"].forEach(k => { $("#sec-" + k).checked = secs.has(k); });
     $("#set-essay-prompt").value = s.essay_prompt || "";
     setTrMode(s.translate_mode || "local");
     loadLocalModelStatus();
@@ -1043,8 +1040,6 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 });
 $("#set-fetch").addEventListener("click", () => testSettings(true));
 $("#set-save").addEventListener("click", async () => {
-  const sections = ["transcript", "ai", "chat", "notes"].filter(k => $("#sec-" + k).checked).join(",");
-  if (!sections) { setSetResult(false, "请至少勾选一项导出内容"); return; }
   try {
     await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1055,8 +1050,6 @@ $("#set-save").addEventListener("click", async () => {
         translate_mode: $("#tr-mode-ctrl button.active").dataset.mode,
         local_model_repo: $("#set-local-repo").value.trim(),
         polish_enabled: $("#set-polish").checked,
-        obsidian_path: $("#set-obsidian-path").value.trim(),
-        obsidian_sections: sections,
         essay_prompt: $("#set-essay-prompt").value.trim(),
       }) });
     toast("设定已保存并立即生效"); setOverlay.hidden = true;

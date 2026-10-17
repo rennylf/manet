@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -289,20 +289,6 @@
         <p class="muted tiny" style="margin-top:4px">自定义随笔的写作要求;留空则使用内置默认提示词。</p>
       </div>
 
-      <!-- ── 板块三:导出设置 ── -->
-      <div class="set-section">
-        <h5>导出设置</h5>
-        <label>Obsidian 导出路径(知识库目录)</label>
-        <input id="set-obsidian-path" type="text" placeholder="留空则默认 ~/Documents/Obsidian">
-        <label style="margin-top:10px">导出内容</label>
-        <div class="check-grid">
-          <label class="check-row"><input type="checkbox" id="sec-transcript"> 转写原文</label>
-          <label class="check-row"><input type="checkbox" id="sec-ai"> AI 笔记</label>
-          <label class="check-row"><input type="checkbox" id="sec-chat"> 问答</label>
-          <label class="check-row"><input type="checkbox" id="sec-notes"> 我的笔记</label>
-        </div>
-      </div>
-
       <div id="set-result" class="set-result"></div>
       <p class="muted tiny">所有设定只留在本机,修改后立即生效。</p>
     </div>
@@ -511,6 +497,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

@@ -49,7 +49,7 @@ Manet 是一场个人产品实验：探索知识工作者如何用语音与文�
 - 我的札记：随手记录，自动保存
 - 导出 Markdown / TXT / SRT（原文 / 中文 / 双语）
 - 软字幕封装：SRT 混流进 MP4 / MKV，播放时可开关，流拷贝秒级完成
-- 一键导出 Obsidian 知识库（frontmatter 与导出内容可配置；随笔单独导出，文件名即随笔标题）
+- 随笔一键导出到 Obsidian（默认 `~/Documents/Obsidian`，文件名即随笔标题）
 - 存档管理：文件夹、搜索、重命名、移动、删除
 
 ## 系统要求
@@ -94,7 +94,7 @@ Windows：双击 `start.bat`（等价于 `uv sync` 后 `uv run uvicorn app.main:
 ## LLM 配置
 
 推荐在网页「⚙️ 设置」中配置，保存到 `data/settings.json`，立即生效、无需重启：
-Base URL / API Key / 模型名、翻译引擎（本地 mlx-lm 或 API）、随笔提示词、Obsidian 导出路径与内容。
+Base URL / API Key / 模型名、翻译引擎（本地 mlx-lm 或 API）、随笔提示词。
 
 也可用环境变量（优先级低于设定页）：
 
