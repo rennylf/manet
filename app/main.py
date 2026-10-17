@@ -419,7 +419,7 @@ class HighlightsReq(BaseModel):
     comments: list[dict] = []
 
 
-def _clean_ranges(items: list[dict], max_text: int = 0) -> list[dict]:
+def _clean_ranges(items: list[dict], require_text: bool = False) -> list[dict]:
     out = []
     for m in items[:500]:
         try:
@@ -429,11 +429,14 @@ def _clean_ranges(items: list[dict], max_text: int = 0) -> list[dict]:
         if a < 0 or b < a:
             continue
         item = {"start": a, "end": b}
-        if max_text:
-            text = str(m.get("text") or "").strip()[:max_text]
-            if not text:
-                continue
+        text = str(m.get("text") or "").strip()[:2000]   # 评论内容
+        if require_text and not text:
+            continue
+        if text:
             item["text"] = text
+        quote = str(m.get("quote") or "").strip()[:2000]  # 选中的原文
+        if quote:
+            item["quote"] = quote
         out.append(item)
     return out
 
@@ -453,7 +456,7 @@ def api_put_highlights(task_id: str, body: HighlightsReq):
     if tasks.get_task(task_id) is None:
         raise HTTPException(404, "任务不存在")
     marks = _clean_ranges(body.marks)
-    comments = _clean_ranges(body.comments, max_text=2000)
+    comments = _clean_ranges(body.comments, require_text=True)
     (config.RESULT_DIR / f"{task_id}.highlights.json").write_text(
         json.dumps({"marks": marks, "comments": comments}, ensure_ascii=False),
         encoding="utf-8")

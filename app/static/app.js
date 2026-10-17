@@ -500,12 +500,14 @@ $("#transcript").addEventListener("mouseup", () => setTimeout(() => {
 hlBar.addEventListener("mousedown", e => e.preventDefault());   // 点浮条不丢选区
 hlBar.querySelector('[data-act="hl"]').addEventListener("click", async () => {
   const r = selectedRange(); if (!r) return;
-  state.marks.push({ start: r.start, end: r.end });
+  const quote = (window.getSelection()?.toString() || "").trim();
+  state.marks.push({ start: r.start, end: r.end, text: quote });
   applyAnnots(); renderAnnotList(); hideHlBar(); await saveAnnots();
 });
 hlBar.querySelector('[data-act="cmt"]').addEventListener("click", () => {
   const r = selectedRange(); if (!r) return;
-  state.pendingRange = { start: r.start, end: r.end };
+  const quote = (window.getSelection()?.toString() || "").trim();
+  state.pendingRange = { start: r.start, end: r.end, quote };
   hideHlBar();
   $("#cmt-text").value = "";
   placeFloat(cmtEditor, r.rect);
@@ -522,7 +524,7 @@ $("#cmt-cancel").addEventListener("click", hideCmtEditor);
 $("#cmt-save").addEventListener("click", async () => {
   const text = $("#cmt-text").value.trim(), r = state.pendingRange;
   if (!r || !text) { hideCmtEditor(); return; }
-  state.comments.push({ start: r.start, end: r.end, text });
+  state.comments.push({ start: r.start, end: r.end, text, quote: r.quote || "" });
   hideCmtEditor(); applyAnnots(); renderAnnotList(); await saveAnnots();
 });
 $("#cmt-text").addEventListener("keydown", e => {
@@ -556,8 +558,9 @@ function renderAnnotList() {
   }
   box.innerHTML = "";
   for (const it of items) {
-    const full = annotSnippet(it.start, it.end);
-    const snippet = full.length > 90 ? full.slice(0, 90) + "…" : full;
+    const sentText = annotSnippet(it.start, it.end);
+    const quoteText = (it.quote || (it.kind === "hl" ? it.text : "") || sentText).trim();
+    const snippet = quoteText.length > 90 ? quoteText.slice(0, 90) + "…" : quoteText;
     const row = document.createElement("div");
     row.className = "annot-item " + it.kind;
     row.innerHTML =
@@ -567,7 +570,7 @@ function renderAnnotList() {
       (it.kind === "cm" ? `<div class="an-cmt">${escapeHtml(it.text)}</div>` : "") +
       `<div class="an-acts"><button class="an-copy">复制</button><button class="an-locate">定位</button></div>`;
     row.querySelector(".an-copy").addEventListener("click", () => {
-      copyText(it.kind === "cm" ? `${full}\n${it.text}` : full);
+      copyText(it.kind === "cm" ? `${quoteText}\n${it.text}` : quoteText);
     });
     row.querySelector(".an-locate").addEventListener("click", () => locateAnnot(it.start));
     box.appendChild(row);
