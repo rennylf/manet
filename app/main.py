@@ -611,6 +611,146 @@ def api_export_obsidian(task_id: str):
     return {"ok": True, "path": str(out_path), "sections": list(sections)}
 
 
+def _group_paragraphs(sentences: list[dict]) -> list[dict]:
+    """与前端 groupParagraphs 同规则:间隙 >1.2s、说话人变化、满 6 句另起段。"""
+    paras: list[dict] = []
+    cur = None
+    for i, s in enumerate(sentences):
+        spk = (cur is not None and s.get("speaker") is not None
+               and cur.get("speaker") is not None and s["speaker"] != cur["speaker"])
+        if cur is None or s["start"] - cur["end"] > 1.2 or len(cur["items"]) >= 6 or spk:
+            cur = {"start": s["start"], "end": s["end"], "items": [],
+                   "speaker": s.get("speaker")}
+            paras.append(cur)
+        cur["items"].append(i)
+        cur["end"] = s["end"]
+    return paras
+
+
+class ExportMdReq(BaseModel):
+    dir: str = ""
+    contents: dict = {}
+
+
+@app.post("/api/tasks/{task_id}/export-md")
+def api_export_md(task_id: str, body: ExportMdReq):
+    """按所选内容导出 Markdown 到指定文件夹(历史路径由前端记忆)。"""
+    data = tr.load_result(task_id)
+    if data is None:
+        raise HTTPException(404, "转写结果不存在")
+    task = tasks.get_task(task_id)
+    analysis = load_json(config.RESULT_DIR / f"{task_id}.analysis.json")
+    title = ((task or {}).get("display_title")
+             or (analysis or {}).get("title")
+             or Path(data.get("filename", task_id)).stem)
+    sentences = data["sentences"]
+    zh = _load_translation(task_id)
+    c = body.contents or {}
+    want_orig = bool(c.get("original", True))
+    want_zh = bool(c.get("translation")) and bool(zh)
+    ts_on = bool(c.get("timestamps", True))
+
+    def para_text(items: list[int], lang: str) -> str:
+        if lang == "zh":
+            return "".join((zh[i].strip() if i < len(zh) and zh[i] else sentences[i]["text"])
+                           for i in items).strip()
+        return "".join(sentences[i]["text"] for i in items).strip()
+
+    md: list[str] = [f"# {title}", ""]
+    if want_orig or want_zh:
+        paras = _group_paragraphs(sentences)
+        if want_orig and want_zh:
+            md += ["## 正文", ""]
+            for p in paras:
+                pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
+                md += [pre + para_text(p["items"], "orig"), "", "> " + para_text(p["items"], "zh"), ""]
+        elif want_orig:
+            md += ["## 原文", ""]
+            for p in paras:
+                pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
+                md += [pre + para_text(p["items"], "orig"), ""]
+        else:
+            md += ["## 译文", ""]
+            for p in paras:
+                pre = f"[{_fmt_ts(p['start'])}] " if ts_on else ""
+                md += [pre + para_text(p["items"], "zh"), ""]
+
+    annots = load_json(config.RESULT_DIR / f"{task_id}.highlights.json") or {}
+    if isinstance(annots, list):
+        annots = {"marks": annots, "comments": []}
+    marks = annots.get("marks", [])
+    comments = annots.get("comments", [])
+    if c.get("highlights") and marks:
+        md += ["## 高亮", ""]
+        for m in marks:
+            a, b = int(m["start"]), int(m["end"])
+            txt = (m.get("text") or para_text(list(range(a, min(b + 1, len(sentences)))), "orig")).strip()
+            md.append(f"- [{_fmt_ts(sentences[a]['start'])}] {txt}")
+        md.append("")
+    if c.get("comments") and comments:
+        md += ["## 评论", ""]
+        for cm in comments:
+            a, b = int(cm["start"]), int(cm["end"])
+            quote = (cm.get("quote") or para_text(list(range(a, min(b + 1, len(sentences)))), "orig")).strip()
+            md += [f"- **[{_fmt_ts(sentences[a]['start'])}]** 「{quote}」",
+                   f"  > {cm.get('text', '')}", ""]
+
+    if c.get("analysis") and analysis:
+        md += ["## AI 解读", ""]
+        if analysis.get("summary"):
+            md += ["### 摘要", analysis["summary"], ""]
+        if analysis.get("chapters"):
+            md += ["### 章节速览", ""]
+            md += [f"- **[{ch.get('time', '')}] {ch.get('title', '')}**"
+                   + (f" — {ch.get('detail', '')}" if ch.get("detail") else "")
+                   for ch in analysis["chapters"]]
+            md.append("")
+        if analysis.get("todos"):
+            md += ["### 待办事项", ""]
+            md += ["- [ ] " + t.get("task", "")
+                   + (f"(负责人:{t['owner']})" if t.get("owner") else "")
+                   + (f"(截止:{t['due']})" if t.get("due") else "")
+                   for t in analysis["todos"]]
+            md.append("")
+        if analysis.get("keywords"):
+            md += ["### 关键词", "、".join(analysis["keywords"]), ""]
+
+    if c.get("chat"):
+        chat_path = config.RESULT_DIR / f"{task_id}.chat.json"
+        if chat_path.exists():
+            try:
+                msgs = json.loads(chat_path.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                msgs = []
+            if msgs:
+                md += ["## 问答", ""]
+                for m in msgs:
+                    role = "我" if m.get("role") == "user" else "AI"
+                    md.append(f"**{role}：** {m.get('content', '')}")
+                    md.append("")
+
+    if c.get("notes"):
+        notes = tasks.load_notes(task_id).strip()
+        if notes:
+            md += ["## 札记", "", notes, ""]
+
+    # 目标文件夹:留空默认 ~/Downloads/Manet;相对路径按用户主目录解析
+    dirp = Path((body.dir or "").strip() or "~/Downloads/Manet").expanduser()
+    if not dirp.is_absolute():
+        dirp = Path.home() / dirp
+    try:
+        dirp.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise HTTPException(409, f"无法创建导出文件夹:{e}")
+    if not dirp.is_dir():
+        raise HTTPException(409, f"目标不是文件夹:{dirp}")
+
+    safe = "".join(ch for ch in title if ch.isalnum() or ch in " _-—，。、").strip()[:80] or task_id
+    out_path = dirp / f"{safe}.md"
+    out_path.write_text("\n".join(md), encoding="utf-8")
+    return {"ok": True, "path": str(out_path)}
+
+
 @app.get("/api/tasks/{task_id}/analysis")
 def api_get_analysis(task_id: str):
     data = load_json(config.RESULT_DIR / f"{task_id}.analysis.json")

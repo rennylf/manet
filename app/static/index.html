@@ -125,6 +125,9 @@
           <div class="dropdown">
             <button id="btn-more" class="btn ghost sm" title="更多操作"><svg class="icon"><use href="#i-more"/></svg></button>
             <div id="more-menu" class="dropdown-menu" hidden>
+              <a id="menu-srt">导出 SRT 字幕</a>
+              <a id="menu-burn">封装软字幕视频</a>
+              <div class="cm-sep"></div>
               <a id="menu-polish">标点恢复</a>
               <a id="menu-retranscribe">重新转写…</a>
             </div>
@@ -405,37 +408,29 @@
     </div>
     <div class="modal-body">
       <div class="set-section first">
-        <h5>文件</h5>
-        <label>格式</label>
-        <div class="seg-ctrl" id="ex-format" style="width:100%">
-          <button data-v="md" class="active" style="flex:1">Markdown</button>
-          <button data-v="txt" style="flex:1">TXT</button>
-          <button data-v="srt" style="flex:1">SRT 字幕</button>
+        <h5>导出内容</h5>
+        <div class="check-grid">
+          <label class="check-row"><input type="checkbox" id="ex-original" checked> 原文</label>
+          <label class="check-row"><input type="checkbox" id="ex-translation"> 译文</label>
+          <label class="check-row"><input type="checkbox" id="ex-timestamps" checked> 时间戳</label>
+          <label class="check-row"><input type="checkbox" id="ex-highlights"> 高亮</label>
+          <label class="check-row"><input type="checkbox" id="ex-comments"> 评论</label>
+          <label class="check-row"><input type="checkbox" id="ex-analysis"> AI 解读</label>
+          <label class="check-row"><input type="checkbox" id="ex-chat"> 问答</label>
+          <label class="check-row"><input type="checkbox" id="ex-notes"> 札记</label>
         </div>
-        <label style="margin-top:12px">语言</label>
-        <div class="seg-ctrl" id="ex-lang" style="width:100%">
-          <button data-v="orig" class="active" style="flex:1">原文</button>
-          <button data-v="zh" style="flex:1">中文</button>
-          <button data-v="both" style="flex:1">双语</button>
-        </div>
-        <p class="muted tiny" id="ex-hint" style="margin-top:8px"></p>
+        <p class="muted tiny" id="ex-hint" style="margin-top:8px">Markdown 格式,原文分段与转写框一致。</p>
       </div>
       <div class="set-section">
-        <h5>影音</h5>
-        <div class="field-row">
-          <button id="ex-burn-mp4" class="btn ghost sm" style="flex:1;justify-content:center">封装软字幕 · MP4</button>
-          <button id="ex-burn-mkv" class="btn ghost sm" style="flex:1;justify-content:center">封装软字幕 · MKV</button>
-        </div>
-        <p class="muted tiny" style="margin-top:6px">字幕轨混流,播放时可开关;使用上方所选语言。</p>
-      </div>
-      <div class="set-section">
-        <h5>知识库</h5>
-        <button id="ex-obsidian" class="btn ghost sm" style="width:100%;justify-content:center"><svg class="icon"><use href="#i-note"/></svg>导出到 Obsidian</button>
+        <h5>导出文件夹</h5>
+        <input id="ex-dir" type="text" list="ex-dir-history" placeholder="~/Downloads/Manet">
+        <datalist id="ex-dir-history"></datalist>
+        <p class="muted tiny">本机路径;文件夹不存在时自动创建。历史路径会记住。</p>
       </div>
     </div>
     <div class="modal-foot">
       <div class="spacer"></div>
-      <button id="ex-save" class="btn primary"><svg class="icon"><use href="#i-download"/></svg>保存文件</button>
+      <button id="ex-save" class="btn primary"><svg class="icon"><use href="#i-download"/></svg>导出</button>
     </div>
   </div>
 </div>
@@ -462,6 +457,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

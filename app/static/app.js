@@ -765,55 +765,77 @@ function pollTranslate() {
 
 /* ================= 导出弹窗 / 更多 ================= */
 const exOverlay = $("#export-overlay");
-const exState = { format: "md", lang: "orig" };
+const EX_DIR_KEY = "tw_export_dir", EX_DIRS_KEY = "tw_export_dirs";
 
-function syncExport() {
-  const hasZh = !!state.translation;
-  const isVideo = VIDEO_EXT.includes(fileExt(state.task?.filename || ""));
-  if (!hasZh) exState.lang = "orig";
-  $$("#ex-format button").forEach(b => b.classList.toggle("active", b.dataset.v === exState.format));
-  $$("#ex-lang button").forEach(b => {
-    b.classList.toggle("active", b.dataset.v === exState.lang);
-    b.disabled = b.dataset.v !== "orig" && !hasZh;
-  });
-  $("#ex-hint").textContent = hasZh ? "中文 / 双语基于当前译文。" : "尚未生成翻译,仅可导出原文。";
-  $$("#ex-burn-mp4, #ex-burn-mkv").forEach(b => {
-    b.disabled = !isVideo || exState.lang !== "orig" && !hasZh;
-    b.title = isVideo ? "" : "音频文件没有视频画面,无法封装字幕轨";
-  });
+function exportDirHistory() {
+  try { return JSON.parse(localStorage.getItem(EX_DIRS_KEY) || "[]"); } catch { return []; }
+}
+function rememberExportDir(dir) {
+  const d = (dir || "").trim() || "~/Downloads/Manet";
+  localStorage.setItem(EX_DIR_KEY, d);
+  const h = exportDirHistory().filter(x => x !== d);
+  h.unshift(d);
+  localStorage.setItem(EX_DIRS_KEY, JSON.stringify(h.slice(0, 8)));
 }
 function openExport() {
   $("#more-menu").hidden = true;
-  exState.lang = state.translation ? state.displayMode : "orig";
-  syncExport(); exOverlay.hidden = false;
+  const has = {
+    translation: !!state.translation,
+    highlights: state.marks.length > 0,
+    comments: state.comments.length > 0,
+    analysis: !!state.analysis,
+    chat: state.chatMessages.length > 0,
+    notes: !!$("#my-notes").value.trim(),
+  };
+  const map = { translation: "#ex-translation", highlights: "#ex-highlights",
+    comments: "#ex-comments", analysis: "#ex-analysis", chat: "#ex-chat", notes: "#ex-notes" };
+  for (const [k, sel] of Object.entries(map)) {
+    const el = $(sel); el.disabled = !has[k]; if (!has[k]) el.checked = false;
+  }
+  $("#ex-hint").textContent = "Markdown 格式,原文分段与转写框一致。"
+    + (has.translation ? "" : " 尚未生成译文。");
+  $("#ex-dir").value = localStorage.getItem(EX_DIR_KEY) || "~/Downloads/Manet";
+  $("#ex-dir-history").innerHTML = exportDirHistory()
+    .map(d => `<option value="${escapeHtml(d)}">`).join("");
+  exOverlay.hidden = false;
 }
 $("#btn-export").addEventListener("click", openExport);
 $("#export-close").addEventListener("click", () => (exOverlay.hidden = true));
-$$("#ex-format button").forEach(b => b.addEventListener("click", () => { exState.format = b.dataset.v; syncExport(); }));
-$$("#ex-lang button").forEach(b => b.addEventListener("click", () => {
-  if (b.disabled) return;
-  exState.lang = b.dataset.v; syncExport();
-}));
-$("#ex-save").addEventListener("click", () => {
-  window.open(`/api/tasks/${state.taskId}/export?format=${exState.format}&lang=${exState.lang}`, "_blank");
-  exOverlay.hidden = true;
+$("#ex-save").addEventListener("click", async () => {
+  const contents = {
+    original: $("#ex-original").checked, translation: $("#ex-translation").checked,
+    timestamps: $("#ex-timestamps").checked, highlights: $("#ex-highlights").checked,
+    comments: $("#ex-comments").checked, analysis: $("#ex-analysis").checked,
+    chat: $("#ex-chat").checked, notes: $("#ex-notes").checked,
+  };
+  const anyBody = contents.original || contents.translation || contents.highlights
+    || contents.comments || contents.analysis || contents.chat || contents.notes;
+  if (!anyBody) { toast("请至少选择一项导出内容"); return; }
+  const dir = $("#ex-dir").value.trim();
+  try {
+    const r = await api(`/api/tasks/${state.taskId}/export-md`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dir, contents }),
+    });
+    rememberExportDir(dir);
+    toast("已导出:" + r.path, 5000);
+    exOverlay.hidden = true;
+  } catch (e) { toast("导出失败:" + e.message, 5000); }
 });
-function exportBurn(container) {
-  if (exState.lang !== "orig" && !state.translation) { toast("请先生成翻译,再封装中文字幕"); return; }
+
+/* 更多菜单:字幕导出与影音封装(从导出弹窗分离,合并为单一封装动作) */
+$("#menu-srt").addEventListener("click", () => {
+  const lang = state.displayMode;
+  if (lang !== "orig" && !state.translation) { toast("请先生成翻译,再导出中文/双语字幕"); return; }
+  window.open(`/api/tasks/${state.taskId}/export?format=srt&lang=${lang}`, "_blank");
+});
+$("#menu-burn").addEventListener("click", () => {
+  const mode = state.displayMode;
+  if (mode !== "orig" && !state.translation) { toast("请先生成翻译,再封装中文字幕"); return; }
   api(`/api/tasks/${state.taskId}/burn`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: exState.lang, container }),
-  }).then(() => { exOverlay.hidden = true; openJobs(); })
-    .catch(e => toast("无法封装:" + e.message));
-}
-$("#ex-burn-mp4").addEventListener("click", () => exportBurn("mp4"));
-$("#ex-burn-mkv").addEventListener("click", () => exportBurn("mkv"));
-$("#ex-obsidian").addEventListener("click", async () => {
-  try {
-    const r = await api(`/api/tasks/${state.taskId}/export-obsidian`, { method: "POST" });
-    toast("已导出到 Obsidian:" + r.path);
-    exOverlay.hidden = true;
-  } catch (e) { toast("Obsidian 导出失败:" + e.message); }
+    body: JSON.stringify({ mode, container: "mp4" }),
+  }).then(() => openJobs()).catch(e => toast("无法封装:" + e.message));
 });
 
 $("#btn-more").addEventListener("click", e => { e.stopPropagation(); $("#more-menu").hidden = !$("#more-menu").hidden; });
