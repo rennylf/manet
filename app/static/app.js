@@ -1258,11 +1258,18 @@ async function loadVisuals() {
 let currentVisual = null;
 function openVisual(v, taskId = state.taskId) {
   currentVisual = { ...v, _taskId: taskId };
-  $("#visual-kind").textContent = v.kind === "selection" ? "节选" : "全文";
+  const isSel = v.kind === "selection";
+  $("#visual-kind").textContent = isSel && Number.isInteger(v.start)
+    ? `节选 · 第 ${v.start + 1}–${v.end + 1} 句` : (isSel ? "节选" : "全文");
+  $("#visual-full").hidden = !isSel || taskId !== state.taskId;
   $("#visual-body").innerHTML = visualSVG(v.spec);
   $("#visual-overlay").hidden = false;
 }
 $("#visual-close").addEventListener("click", () => ($("#visual-overlay").hidden = true));
+$("#visual-full").addEventListener("click", () => {
+  $("#visual-overlay").hidden = true;
+  requestVisual({ scope: "full" });
+});
 $("#visual-png").addEventListener("click", () => {
   const svg = $("#visual-body svg"); if (!svg) return;
   const vb = svg.viewBox.baseVal, W = vb.width, H = vb.height;

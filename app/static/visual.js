@@ -301,30 +301,56 @@ const VIS_BLOCKS = {
     },
   },
 
-  /* 关键数字 */
+  /* 关键数字:值较长时自动改用 2 列 × 2 行,避免挤压与溢出 */
   stats: {
     _geo(b, w) {
-      const items = (b.items || []).slice(0, 4), gap = 24;
-      const cw = (w - gap * (items.length - 1)) / Math.max(1, items.length);
+      const items = (b.items || []).slice(0, 4), gap = 28;
+      const long = items.some(it => String(it.value || "").length > 7);
+      const cols = items.length <= 2 ? Math.max(1, items.length)
+        : (long ? 2 : Math.min(3, items.length));
+      const cw = (w - gap * (cols - 1)) / cols;
+      const maxW = cw - 12;
       const info = items.map(it => {
-        const label = visWrap(it.label || "", cw - 24, visFont(15, VIS.sans));
-        return { it, label, h: 48 + 10 + label.length * 21 };
+        const value = String(it.value || "");
+        let vs = 40;
+        _visCtx.font = visFont(vs, VIS.serif, "700");
+        while (vs > 24 && _visCtx.measureText(value).width > maxW) {
+          vs -= 4;
+          _visCtx.font = visFont(vs, VIS.serif, "700");
+        }
+        const vlines = visWrap(value, maxW, visFont(vs, VIS.serif, "700")).slice(0, 2);
+        const label = visWrap(it.label || "", maxW, visFont(15, VIS.sans));
+        const vh = vlines.length * Math.round(vs * 1.12);
+        return { it, vlines, vs, label, vh, h: vh + 10 + label.length * 21 };
       });
-      return { cw, gap, info, h: Math.max(...info.map(i => i.h)) + 14 };
+      const rowH = [];
+      info.forEach((it, i) => {
+        const r = Math.floor(i / cols);
+        rowH[r] = Math.max(rowH[r] || 0, it.h);
+      });
+      const totalH = rowH.reduce((a, h) => a + h, 0) + Math.max(0, rowH.length - 1) * 22;
+      return { cw, gap, cols, info, rowH, h: totalH + 14 };
     },
     measure(b, w) { return this._geo(b, w).h; },
     draw(b, y, w) {
       const g = this._geo(b, w);
-      return g.info.map((it, i) => {
-        const x = VIS.pad + i * (g.cw + g.gap);
-        let out = "";
-        if (i) out += `<line x1="${x - g.gap / 2}" y1="${y + 6}" x2="${x - g.gap / 2}" y2="${y + g.h - 12}" stroke="${VIS.c.border}"/>`;
-        out += visText([String(it.it.value || "")], x + 6, y, {
-          size: 42, family: VIS.serif, weight: "700", fill: VIS.c.accent,
-        });
-        out += visText(it.label, x + 6, y + 52, { size: 15, fill: VIS.c.sub, lh: 21 });
-        return out;
-      }).join("");
+      let out = "", cy = y;
+      g.rowH.forEach((rh, r) => {
+        for (let c = 0; c < g.cols; c++) {
+          const it = g.info[r * g.cols + c];
+          if (!it) continue;
+          const x = VIS.pad + c * (g.cw + g.gap);
+          out += visText(it.vlines, x, cy, {
+            size: it.vs, family: VIS.serif, weight: "700", fill: VIS.c.accent,
+            lh: Math.round(it.vs * 1.12),
+          });
+          out += visText(it.label, x, cy + it.vh + 10, {
+            size: 15, fill: VIS.c.sub, lh: 21,
+          });
+        }
+        cy += rh + 22;
+      });
+      return out;
     },
   },
 

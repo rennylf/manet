@@ -628,7 +628,7 @@ VISUAL_PROMPT = """你是资深信息设计师。把下面文本整理成一张�
 先判断内容结构,再选择 2~5 个块,按版面顺序排列(总→分→总):
 1) 顶部概览(可选,放最前):{"type":"highlights","items":["一句结论", ...]} 2~4 条
 2) 主体(按内容真实结构选 1~3 个):
-   - 并列主题:{"type":"sections","items":[{"label":"分组名","points":["要点", ...]}]} 2~4 组
+   - 并列主题:{"type":"sections","items":[{"label":"分组名","points":["要点", ...]}]} 长文本 3~5 组、每组 3~5 条
    - 正反对照:{"type":"compare","left":{"label":"","tone":"positive","items":["..."]},"right":{"label":"","tone":"negative","items":["..."]}}
    - 二维交叉(仅当文本确有两条独立的判断维度):{"type":"matrix","x":{"label":"横轴","low":"低","high":"高"},"y":{"label":"纵轴","low":"低","high":"高"},"cells":[{"title":"","desc":"","action":"","tone":"positive|neutral|negative"}, 共 4 个]} 顺序:左上、右上、左下、右下
    - 有先后的步骤:{"type":"process","steps":[{"label":"","desc":""}]} 2~4 步
@@ -638,6 +638,7 @@ VISUAL_PROMPT = """你是资深信息设计师。把下面文本整理成一张�
 
 要求:
 - 内容必须来自文本,不编造;标题 ≤22 字,摘要 ≤30 字,每条要点 ≤45 字,引文 ≤80 字。
+- 长文本要覆盖全文的主要脉络与转折,不要只取开头;次要内容可合并,重要内容不能遗漏。
 - 不要把所有内容都塞进 sections:有对立就用 compare,有步骤就用 process,有明确数字就用 stats。
 - 概览条写整篇的结论,不要复述章节标题。
 - footer 用一句话点出全文逻辑(≤30 字)。
@@ -677,12 +678,12 @@ def _clean_visual(spec) -> dict:
 
         elif t == "sections":
             secs = []
-            for s in (b.get("items") or [])[:4]:
+            for s in (b.get("items") or [])[:5]:
                 if not isinstance(s, dict):
                     continue
                 label = _vtxt(s.get("label"), 14)
                 pts = [_vtxt(x, 60) for x in (s.get("points") or s.get("items") or [])
-                       if _vtxt(x, 60)][:4]
+                       if _vtxt(x, 60)][:5]
                 if label and pts:
                     secs.append({"label": label, "points": pts})
             if secs:
@@ -744,7 +745,7 @@ def _clean_visual(spec) -> dict:
             for s in (b.get("items") or [])[:4]:
                 if not isinstance(s, dict):
                     continue
-                value = _vtxt(s.get("value"), 10)
+                value = _vtxt(s.get("value"), 14)
                 label = _vtxt(s.get("label"), 24)
                 if value and label:
                     items.append({"value": value, "label": label})
@@ -781,7 +782,7 @@ def visualize(text: str) -> dict:
         raise LLMError("没有可视觉化的文本")
     out = _chat([
         {"role": "system", "content": "你是信息设计师,只输出 JSON。"},
-        {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:12000])},
+        {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:20000])},
     ], temperature=0.4, timeout=180)
     return _clean_visual(_extract_json(out))
 
