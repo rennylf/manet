@@ -139,32 +139,8 @@ def api_delete_visual(task_id: str, vid: str):
 
 @app.get("/api/history")
 def api_history():
-    """任务中心历史:每条记录附已产出内容分类,供筛选与详情。"""
-    out = []
-    for t in tasks.list_tasks():
-        if t.get("status") not in ("done", "error", "cancelled"):
-            continue
-        rid = t["id"]
-        cats = []
-        if t.get("status") == "done":
-            cats.append("transcribe")
-        for key, name in (("analysis", ".analysis.json"),
-                          ("translation", ".translation.json"),
-                          ("mindmap", ".mindmap.json"),
-                          ("essay", ".essay.txt")):
-            if (config.RESULT_DIR / f"{rid}{name}").exists():
-                cats.append(key)
-        visuals = load_json(config.RESULT_DIR / f"{rid}.visuals.json") or []
-        if visuals:
-            cats.append("visual")
-        if t.get("burned_path"):
-            cats.append("burn")
-        out.append({"id": rid, "title": t.get("display_title", rid),
-                    "created_at": t.get("created_at", 0),
-                    "duration": t.get("duration"),
-                    "status": t.get("status"),
-                    "categories": cats, "visuals": len(visuals)})
-    return out
+    """任务中心历史:一次执行一条记录(转写/解读/翻译/脑图/随笔/视觉化/封装)。"""
+    return tasks.list_history()
 
 
 @app.delete("/api/tasks")

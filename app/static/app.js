@@ -24,7 +24,7 @@ const state = {
   reading: localStorage.getItem("tw_reading") === "1",
   marks: [], comments: [], pendingRange: null, lastSel: null,
   visuals: [], seenVisual: false,
-  history: [], histFilter: "全部", histDetail: null,
+  history: [], histFilter: "全部",
 };
 const MODE_NAMES = { orig: "原文", zh: "中文", both: "双语" };
 const VIDEO_EXT = ["mp4", "mov", "mkv", "avi", "webm", "flv", "wmv", "ts"];
@@ -1364,7 +1364,7 @@ function allJobs() {
   const rank = { running: 0, canceling: 0, paused: 1, await: 2, error: 3, cancelled: 4 };
   return jobs.sort((a, b) => rank[a.state] - rank[b.state]);
 }
-const HIST_CATS = { "转写": "transcribe", "解读": "analysis", "翻译": "translation",
+const HIST_CATS = { "转写": "transcribe", "解读": "analyze", "翻译": "translate",
   "脑图": "mindmap", "随笔": "essay", "视觉化": "visual", "封装": "burn" };
 
 async function loadHistory() {
@@ -1372,11 +1372,10 @@ async function loadHistory() {
 }
 function historyRows() {
   const key = HIST_CATS[state.histFilter];
-  return state.history.filter(h => !key || (h.categories || []).includes(key));
+  return state.history.filter(h => !key || h.kind === key);
 }
 function renderJobs() {
   const box = $("#jobs-list"); box.innerHTML = "";
-  if (state.histDetail) { renderHistoryDetail(box, state.histDetail); return; }
   const fb = $("#jobs-filters"); fb.innerHTML = "";
   ["全部", "转写", "解读", "翻译", "脑图", "随笔", "视觉化", "封装"].forEach(f => {
     const c = document.createElement("button");
@@ -1385,7 +1384,7 @@ function renderJobs() {
     c.addEventListener("click", () => { state.histFilter = f; renderJobs(); });
     fb.appendChild(c);
   });
-  const jobs = allJobs();
+  const jobs = allJobs().filter(j => ["running", "paused", "canceling", "await"].includes(j.state));
   if (jobs.length) {
     box.insertAdjacentHTML("beforeend", '<div class="jobs-section-head">进行中</div>');
     for (const j of jobs) {
@@ -1412,60 +1411,15 @@ function renderJobs() {
     return;
   }
   for (const h of rows) {
+    const kindLabel = Object.keys(HIST_CATS).find(k => HIST_CATS[k] === h.kind) || h.kind;
+    const stLabel = h.status === "error" ? "失败" : h.status === "cancelled" ? "已终止" : "";
     const row = document.createElement("div"); row.className = "hist-row";
     row.innerHTML = `<span class="hist-title">${escapeHtml(h.title)}</span>`
-      + `<span class="hist-date">${fmtDate(h.created_at)}</span>`
-      + `<div class="hist-cats">${(h.categories || []).map(c =>
-          `<span>${Object.keys(HIST_CATS).find(k => HIST_CATS[k] === c) || c}</span>`).join("")}</div>`;
-    row.addEventListener("click", () => { state.histDetail = h.id; renderJobs(); });
+      + `<span class="hist-kind">${kindLabel}</span>`
+      + (stLabel ? `<span class="hist-status ${h.status === "error" ? "err" : "stop"}">${stLabel}</span>` : "")
+      + `<span class="hist-date">${fmtDate(h.at)}</span>`;
     box.appendChild(row);
   }
-}
-
-async function renderHistoryDetail(box, id) {
-  const h = state.history.find(x => x.id === id);
-  if (!h) { state.histDetail = null; renderJobs(); return; }
-  box.innerHTML = "";
-  const back = document.createElement("button");
-  back.className = "btn ghost sm"; back.textContent = "← 返回列表";
-  back.style.margin = "10px 16px";
-  back.addEventListener("click", () => { state.histDetail = null; renderJobs(); });
-  box.appendChild(back);
-  const wrap = document.createElement("div"); wrap.className = "hist-detail";
-  wrap.innerHTML = `<h4>${escapeHtml(h.title)}</h4>`
-    + `<div class="meta">${fmtDate(h.created_at)}${h.duration ? " · " + fmtDur(h.duration) : ""}`
-    + ` · ${(h.categories || []).map(c => Object.keys(HIST_CATS).find(k => HIST_CATS[k] === c) || c).join(" / ")}</div>`;
-  const row = document.createElement("div"); row.className = "row";
-  const mk = (label, fn) => { const b = document.createElement("button"); b.className = "btn ghost sm"; b.textContent = label; b.addEventListener("click", fn); row.appendChild(b); };
-  mk("打开记录", () => { $("#jobs-overlay").hidden = true; openDetail(id); });
-  if ((h.categories || []).includes("mindmap")) {
-    mk("查看脑图", () => { $("#jobs-overlay").hidden = true; openDetail(id); setTimeout(() => openMindmap(false), 500); });
-  }
-  if ((h.categories || []).includes("essay")) {
-    let shown = false;
-    mk("查看随笔", async () => {
-      if (shown) return;
-      try {
-        const r = await api(`/api/tasks/${id}/essay`);
-        const pre = document.createElement("div"); pre.className = "hist-essay"; pre.textContent = r.essay;
-        wrap.insertBefore(pre, row); shown = true;
-      } catch (e) { toast("读取随笔失败:" + e.message); }
-    });
-  }
-  if ((h.categories || []).includes("visual")) {
-    mk("查看视觉化", async () => {
-      try {
-        const r = await api(`/api/tasks/${id}/visuals`);
-        const list = document.createElement("div");
-        (r.visuals || []).forEach(v => {
-          list.appendChild(visualItemEl(v, id, () => loadHistory().then(() => renderJobs())));
-        });
-        wrap.appendChild(list);
-      } catch (e) { toast("读取视觉化失败:" + e.message); }
-    });
-  }
-  wrap.appendChild(row);
-  box.appendChild(wrap);
 }
 async function jobPause(id, paused) { try { await api(`/api/tasks/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused }) }); await fetchTasks(); renderJobs(); toast(paused ? "已暂停" : "已继续"); } catch (e) { toast("操作失败:" + e.message); } }
 async function jobCancel(id) { if (!confirm("终止任务?进行中的工作会立刻停止并丢弃结果。")) return; try { await api(`/api/tasks/${id}/cancel`, { method: "POST" }); await fetchTasks(); renderJobs(); } catch (e) { toast("终止失败:" + e.message); } }
@@ -1482,19 +1436,17 @@ function updateFab() {
 let jobsPoll = null;
 async function openJobs() {
   $("#jobs-overlay").hidden = false;
-  state.histDetail = null;
   await loadHistory(); renderJobs();
   if (jobsPoll) clearInterval(jobsPoll);
   jobsPoll = setInterval(async () => {
     if ($("#jobs-overlay").hidden) { clearInterval(jobsPoll); jobsPoll = null; return; }
-    await fetchTasks();
-    if (!state.histDetail) renderJobs();
+    await fetchTasks(); await loadHistory(); renderJobs();
   }, 3000);
 }
 let clearDays = 7;
 function clearEstimate() {
   const cutoff = Date.now() / 1000 - clearDays * 86400;
-  const n = (state.history || []).filter(h => h.created_at < cutoff && h.id !== state.taskId).length;
+  const n = (state.history || []).filter(h => h.at < cutoff && h.task_id !== state.taskId).length;
   $("#clear-estimate").textContent = n
     ? `符合条件的历史记录 ${n} 条;当前打开的任务不在其中。`
     : "没有符合条件的历史记录。";
@@ -1527,7 +1479,7 @@ $("#clear-confirm").addEventListener("click", async () => {
     const r = await api(`/api/tasks?before_days=${clearDays}${excl}`, { method: "DELETE" });
     $("#clear-overlay").hidden = true;
     const keep = r.skipped ? `,保留运行中 ${r.skipped} 条` : "";
-    toast(`已清除 ${r.removed} 条记录${keep}`, 4000);
+    toast(`已清除 ${r.records ?? r.removed} 条记录${keep}`, 4000);
     await loadHistory(); await fetchTasks(); renderJobs();
   } catch (err) { toast("清除失败:" + err.message, 5000); }
   finally { btn.disabled = false; }

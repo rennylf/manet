@@ -31,6 +31,8 @@ if not log.handlers:
 
 _TASKS_FILE = config.DATA_DIR / "tasks.json"
 _FOLDERS_FILE = config.DATA_DIR / "folders.json"
+_HISTORY_FILE = config.DATA_DIR / "history.json"   # 每次执行一条记录(转写/解读/…)
+_HISTORY_MAX = 800
 EXPORT_DIR = config.DATA_DIR / "exports"
 _lock = threading.Lock()
 _tasks: dict[str, dict] = {}
@@ -193,6 +195,11 @@ def delete_task(task_id: str):
             p.unlink(missing_ok=True)
         except OSError:
             pass
+    with _lock:
+        items = _history_load()
+        keep = [h for h in items if h.get("task_id") != task_id]
+        if len(keep) != len(items):
+            _history_save(keep)
 
 
 def _rebase(p: str | None) -> str | None:
@@ -264,6 +271,50 @@ def _update(task_id: str, **fields):
         task.update(fields)
         task["updated_at"] = time.time()
         _persist()
+
+
+# ---- 执行记录:一次作业一行,不按音视频聚合 ----
+def _history_load() -> list[dict]:
+    if not _HISTORY_FILE.exists():
+        return []
+    try:
+        data = json.loads(_HISTORY_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _history_save(items: list[dict]):
+    tmp = _HISTORY_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(items[-_HISTORY_MAX:], ensure_ascii=False, indent=1),
+                   encoding="utf-8")
+    tmp.replace(_HISTORY_FILE)
+
+
+def _log_run(task_id: str, kind: str):
+    """作业结束时写一条执行记录;失败与终止也保留,便于回看。"""
+    if kind == "polish":                  # 标点恢复是转写的内部步骤,不单独记
+        return
+    with _lock:
+        t = _tasks.get(task_id)
+        if t is None:
+            return
+        status = t.get(_JOB_FIELD[kind])
+        if status == "running":           # 异常未回写状态 → 按失败记
+            status = "error"
+        if status not in ("done", "error", "cancelled"):
+            return
+        items = _history_load()
+        items.append({"id": uuid.uuid4().hex[:10], "task_id": task_id,
+                      "title": _display_title(t), "kind": kind,
+                      "status": status, "at": time.time()})
+        _history_save(items)
+
+
+def list_history() -> list[dict]:
+    with _lock:
+        items = _history_load()
+    return sorted(items, key=lambda x: x.get("at", 0), reverse=True)
 
 
 def create_task(filename: str, tmp_path: Path, language: str | None,
@@ -920,6 +971,10 @@ def _worker(channel: str):
                 with _lock:
                     _current[channel] = {"task_id": None, "kind": None}
         finally:
+            try:
+                _log_run(task_id, kind)
+            except Exception:  # noqa: BLE001 — 记录失败不影响队列
+                log.exception("写执行记录失败 task=%s kind=%s", task_id, kind)
             q.task_done()
 
 
@@ -946,13 +1001,23 @@ def clear_before(days: int, exclude: set[str] | None = None) -> dict:
             else:
                 ids.append(tid)
     removed = 0
+    removed_ids: set[str] = set()
     for tid in ids:
         try:
             delete_task(tid)
             removed += 1
+            removed_ids.add(tid)
         except Exception:  # noqa: BLE001
             log.exception("清除任务记录失败 task=%s", tid)
-    return {"removed": removed, "skipped": kept}
+    # 执行记录同步清理:早于 cutoff 的,以及所属任务已被删除的
+    with _lock:
+        items = _history_load()
+        keep = [h for h in items
+                if h.get("at", 0) >= cutoff and h.get("task_id") not in removed_ids]
+        dropped = len(items) - len(keep)
+        if dropped:
+            _history_save(keep)
+    return {"removed": removed, "skipped": kept, "records": dropped}
 
 
 def _recover():
@@ -984,7 +1049,44 @@ def _recover():
         _enqueue(*item)
 
 
+def _seed_history():
+    """首次启用执行记录:按现有结果补一份当前版本记录,避免历史空白。"""
+    if _HISTORY_FILE.exists():
+        return
+    entries: list[dict] = []
+    with _lock:
+        for tid, t in _tasks.items():
+            if t.get("status") not in ("done", "error", "cancelled"):
+                continue
+            title = _display_title(t)
+            base = t.get("updated_at") or t.get("created_at") or time.time()
+
+            def add(kind: str, status: str | None, at: float | None = None):
+                if status in ("done", "error", "cancelled"):
+                    entries.append({"id": uuid.uuid4().hex[:10], "task_id": tid,
+                                    "title": title, "kind": kind,
+                                    "status": status, "at": at or base})
+
+            add("transcribe", t.get("status"))
+            for kind, field in (("analyze", "analysis_status"),
+                                ("translate", "translation_status"),
+                                ("burn", "burn_status"),
+                                ("mindmap", "mindmap_status"),
+                                ("essay", "essay_status")):
+                add(kind, t.get(field))
+            vpath = config.RESULT_DIR / f"{tid}.visuals.json"
+            if vpath.exists():
+                try:
+                    for v in json.loads(vpath.read_text(encoding="utf-8")) or []:
+                        add("visual", "done", v.get("created_at"))
+                except (OSError, json.JSONDecodeError):
+                    pass
+    entries.sort(key=lambda x: x["at"])
+    _history_save(entries)
+
+
 _load()
+_seed_history()
 threading.Thread(target=_worker, args=("heavy",), daemon=True).start()
 threading.Thread(target=_worker, args=("llm",), daemon=True).start()
 _recover()
