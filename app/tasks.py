@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import queue
+import re
 import signal
 import subprocess
 import threading
@@ -154,7 +155,11 @@ def rename_folder(folder_id: str, name: str):
         for f in _folders:
             if f["id"] == folder_id:
                 f["name"] = name.strip()[:40]
+                for t in _tasks.values():       # 磁盘目录跟随档案文件夹改名
+                    if t.get("folder") == folder_id:
+                        _sync_media_path(t)
                 _persist_folders()
+                _persist(force=True)
                 return
     raise KeyError(folder_id)
 
@@ -166,8 +171,58 @@ def delete_folder(folder_id: str):
         for t in _tasks.values():       # 夹内任务回到根目录
             if t.get("folder") == folder_id:
                 t["folder"] = None
+                _sync_media_path(t)
         _persist_folders()
         _persist(force=True)
+
+
+# ---- 媒体文件:磁盘上按「档案文件夹 / 标题.扩展名」存放(本地优先) ----
+_BAD_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def _safe_name(name: str, fallback: str = "未命名") -> str:
+    name = _BAD_NAME.sub("_", (name or "").strip()).strip(" .")
+    name = re.sub(r"\s+", " ", name)[:80].strip()
+    return name or fallback
+
+
+def _folder_dir(folder_id: str | None) -> Path:
+    if not folder_id:
+        return config.UPLOAD_DIR
+    name = next((f.get("name") for f in _folders if f.get("id") == folder_id), None)
+    return config.UPLOAD_DIR / _safe_name(name or "", "未命名文件夹")
+
+
+def _unique_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+    for i in range(2, 1000):
+        cand = path.with_name(f"{path.stem} ({i}){path.suffix}")
+        if not cand.exists():
+            return cand
+    return path.with_name(f"{path.stem}-{uuid.uuid4().hex[:4]}{path.suffix}")
+
+
+def _sync_media_path(task: dict, title: str | None = None):
+    """把媒体文件重命名/移动到「档案文件夹/标题.扩展名」,并回写任务记录。"""
+    media = task.get("media")
+    if not media:
+        return
+    src = Path(media)
+    if not src.exists():
+        return
+    name = _safe_name(title or _display_title(task), task.get("id", "未命名"))
+    dst = _folder_dir(task.get("folder")) / f"{name}{src.suffix.lower()}"
+    try:
+        if src.resolve() == dst.resolve():
+            return
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst = _unique_path(dst)
+        src.rename(dst)
+        task["media"] = str(dst)
+        task["filename"] = dst.name
+    except OSError:
+        log.exception("同步媒体文件名失败 task=%s", task.get("id"))
 
 
 def move_task(task_id: str, folder_id: str | None):
@@ -178,6 +233,7 @@ def move_task(task_id: str, folder_id: str | None):
         if folder_id is not None and not any(f["id"] == folder_id for f in _folders):
             raise KeyError(folder_id)
         task["folder"] = folder_id
+        _sync_media_path(task)
         _persist(force=True)
 
 
@@ -343,12 +399,13 @@ def create_task(filename: str, tmp_path: Path, language: str | None,
                 auto_translate: bool = False) -> str:
     task_id = uuid.uuid4().hex[:12]
     ext = Path(filename).suffix.lower() or tmp_path.suffix.lower()
-    saved_path = config.UPLOAD_DIR / f"{task_id}{ext}"
+    stem = _safe_name(Path(filename).stem, "未命名")
+    saved_path = _unique_path(config.UPLOAD_DIR / f"{stem}{ext}")
     tmp_path.replace(saved_path)
     with _lock:
         _tasks[task_id] = {
             "id": task_id,
-            "filename": filename,
+            "filename": saved_path.name,
             "status": "queued",          # queued → transcribing → done / error
             "stage": "排队中",
             "language": language,
@@ -561,6 +618,7 @@ def next_ai_title(task_id: str) -> str:
             raise KeyError(task_id)
         task.update(ai_title=pick[:120], ai_title_pool=pool,
                     ai_title_used=used + [pick])
+        _sync_media_path(task, pick)         # AI 新标题同步真实文件名
         _persist(force=True)
     return pick
 
@@ -589,6 +647,7 @@ def set_title(task_id: str, title: str):
         if task is None:
             raise KeyError(task_id)
         task["custom_title"] = title.strip()[:120]
+        _sync_media_path(task, task["custom_title"])
         _persist(force=True)
 
 

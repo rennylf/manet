@@ -13,7 +13,7 @@
   document.documentElement.dataset.theme = n ? "night" : "light";
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 <!-- ============ Manet 图标系统(sprite · 24 网格 · 线宽 1.5) ============ -->
@@ -68,9 +68,9 @@
     <button id="btn-side-upload" class="btn primary side-btn"><svg class="icon"><use href="#i-import"/></svg>导入音视频</button>
     <div id="nav-settings" class="nav-item"><svg class="icon"><use href="#i-settings"/></svg>设定</div>
     <div id="nav-jobs" class="nav-item" title="任务中心"><svg class="icon"><use href="#i-tasks"/></svg>任务<span id="nav-jobs-count" class="nav-count"></span></div>
-    <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>存档</div>
+    <div id="nav-home" class="nav-item active"><svg class="icon"><use href="#i-archive"/></svg>档案</div>
     <div class="side-search">
-      <input id="search-input" type="search" placeholder="搜索存档…">
+      <input id="search-input" type="search" placeholder="搜索档案…">
     </div>
     <div id="side-list" class="side-list"></div>
     <div class="side-foot">
@@ -112,7 +112,7 @@
 
       <!-- 顶栏:返回 + 标题 + 操作 -->
       <div class="detail-topbar">
-        <button id="btn-back" class="icon-btn" title="返回存档"><svg class="icon icon-18"><use href="#i-back"/></svg></button>
+        <button id="btn-back" class="icon-btn" title="返回档案"><svg class="icon icon-18"><use href="#i-back"/></svg></button>
         <div class="title-block">
           <h2 id="detail-title" contenteditable="plaintext-only" title="点击可改名"></h2>
           <div id="detail-meta"></div>
@@ -130,8 +130,11 @@
               <a id="menu-srt">导出 SRT 字幕</a>
               <a id="menu-burn">封装软字幕视频</a>
               <div class="cm-sep"></div>
+              <a id="menu-move">移动到…</a>
               <a id="menu-polish">标点恢复</a>
               <a id="menu-retranscribe">重新转写…</a>
+              <div class="cm-sep"></div>
+              <a id="menu-delete" class="danger">删除档案…</a>
             </div>
           </div>
         </div>
@@ -144,14 +147,13 @@
             <video id="player" playsinline></video>
           </div>
           <div class="transcript-toolbar">
-            <span id="task-status" class="tag"></span>
+            <button id="btn-translate" class="btn ghost sm"><svg class="icon"><use href="#i-translate"/></svg>翻译</button>
             <svg class="icon icon-14 lang-mark" title="显示语言"><use href="#i-globe"/></svg>
             <div class="seg-ctrl" id="lang-ctrl">
               <button data-mode="orig" class="active">原文</button>
               <button data-mode="zh">中文</button>
               <button data-mode="both">双语</button>
             </div>
-            <button id="btn-translate" class="btn ghost sm"><svg class="icon"><use href="#i-translate"/></svg>翻译</button>
             <div class="spacer"></div>
             <input id="transcript-search" class="tsearch" type="search" placeholder="搜索正文…">
             <button id="btn-read" class="btn ghost sm" title="阅读模式:点击正文不再跳转,可选中文本标注"><svg class="icon"><use href="#i-read"/></svg>阅读</button>
@@ -499,6 +501,6 @@
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
 <script src="visual.js?v=2"></script>
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
