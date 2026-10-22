@@ -88,7 +88,10 @@ def _chat(messages: list[dict], temperature: float = 0.3,
 
 
 def _extract_json(text: str) -> dict:
-    """从 LLM 回复中提取 JSON 对象(容忍 ```json 围栏和前后杂文本)。"""
+    """从 LLM 回复中提取 JSON 对象(容忍 ```json 围栏和前后杂文本)。
+
+    括号配平必须跳过字符串内部:HTML/CSS 里的 { } 和引号不应参与计数。
+    """
     text = text.strip()
     fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
     if fence:
@@ -96,12 +99,24 @@ def _extract_json(text: str) -> dict:
     start = text.find("{")
     if start == -1:
         raise LLMError(f"LLM 未返回有效 JSON:{text[:200]}")
-    # 从第一个 { 开始做括号配平
     depth = 0
+    in_str = False
+    escaped = False
     for i in range(start, len(text)):
-        if text[i] == "{":
+        ch = text[i]
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
             depth += 1
-        elif text[i] == "}":
+        elif ch == "}":
             depth -= 1
             if depth == 0:
                 return json.loads(text[start:i + 1])
@@ -626,10 +641,14 @@ _TS_HEAD_RE = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[—\-–:：、.]?\s*(
 
 
 VISUAL_PROMPT = """你是资深信息设计师。把文本做成一张「总→分→总」结构的信息图。
-只输出 JSON:{"title":"标题(≤22字)","kicker":"副标题(≤24字)","html":"<div>…</div>"}
+输出格式(不要 JSON、不要 markdown 围栏):
+TITLE: 标题(≤22字)
+KICKER: 副标题(≤24字)
+HTML:
+<div>…</div>
 
 【硬约束】
-- html 是 800px 宽的单个 HTML 片段,所有 CSS 必须写在 style="" 内。
+- html 是 800px 宽的单个 HTML 片段,所有 CSS 必须写在 style='' 内;HTML 属性统一用单引号。
 - 只用 <table> 布局;禁止 flex/grid/绝对定位;禁用 <style><script><img><a> 与外部字体/资源/emoji。
 - 字体栈:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif。
 - 页面底色 #faf8f5;白卡 #fff 配 1px #e0d8c8;正文 12-13px,行高 1.6-1.8;标题 21-22px / 700 / 字距 2。
@@ -656,7 +675,7 @@ VISUAL_PROMPT = """你是资深信息设计师。把文本做成一张「总→�
 - 覆盖全文主要脉络与转折,不要只取开头;不编造。
 - 10 秒看懂全貌,30 秒抓住所有要点;条目用短句,关键数字单独成块。
 - 有对立用对比,有步骤用流程,有二维关系用矩阵,不要把所有内容堆成列表。
-- 使用与文本相同的语言。只输出 JSON,不要 markdown 围栏。
+- 使用与文本相同的语言。不要 JSON、不要 markdown 围栏。
 
 文本:
 {text}"""
@@ -664,6 +683,139 @@ VISUAL_PROMPT = """你是资深信息设计师。把文本做成一张「总→�
 
 def _vtxt(v, n: int) -> str:
     return str(v or "").strip()[:n]
+
+
+def _strip_fence(text: str) -> str:
+    text = (text or "").strip()
+    m = re.search(r"```(?:json|html)?\s*(.*?)```", text, re.S)
+    return m.group(1).strip() if m else text
+
+
+def _looks_like_html(raw: str) -> bool:
+    s = (raw or "").lstrip()
+    return (
+        s.startswith("<")
+        and ("<div" in s or "<table" in s or "<section" in s)
+        and not re.search(r'"html"\s*:', s[:240])
+    )
+
+
+def _html_from_jsonish(text: str) -> str | None:
+    """从模型吐出的半截/嵌套 JSON 中取出 html 字段。
+
+    典型坏输出:
+    {"title":"…","kicker":"…","html":"<div style=\\"…\\">…"}
+    其中 HTML 里的引号没有正确转义,严格 JSON 解析会失败。
+    这里按最后一个 html 标记截取,并还原常见的转义。
+    """
+    m = re.search(r'"html"\s*:\s*"', text)
+    if not m:
+        return None
+    raw = text[m.end():].strip()
+    raw = re.sub(r"\s*```.*$", "", raw, flags=re.S)
+    if raw.endswith('"}'):
+        raw = raw[:-2]
+    elif raw.endswith("}"):
+        raw = raw[:-1]
+    raw = raw.lstrip('"')
+    raw = (
+        raw.replace("\\&quot;", "")
+        .replace('\\"', '"')
+        .replace("\\/", "/")
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace("\\\\", "\\")
+    ).strip()
+    if raw.startswith("{"):
+        nested = _html_from_jsonish(raw)
+        if nested:
+            raw = nested
+    return raw if _looks_like_html(raw) else None
+
+
+def _parse_visual_response(out: str, fallback_title: str = "") -> dict:
+    """解析视觉化回复:兼容旧 JSON 协议、新的 TITLE/KICKER/HTML 协议和裸 HTML。"""
+    text = _strip_fence(out)
+
+    # 1) 正常 JSON
+    try:
+        obj = _extract_json(text)
+        if isinstance(obj, dict):
+            try:
+                return _clean_visual(obj)
+            except LLMError:
+                inner = _html_from_jsonish(str(obj.get("html") or ""))
+                if inner:
+                    return _clean_visual({
+                        "title": obj.get("title") or fallback_title,
+                        "kicker": obj.get("kicker", ""),
+                        "html": inner,
+                    })
+    except LLMError:
+        pass
+
+    # 2) 半截 JSON / html 字段里又套了 JSON
+    if text.lstrip().startswith("{") or re.search(r'"html"\s*:', text[:300]):
+        title = ""
+        m = re.search(r'"title"\s*:\s*"([^"]*)"', text)
+        if m:
+            title = m.group(1)
+        kicker = ""
+        m = re.search(r'"kicker"\s*:\s*"([^"]*)"', text)
+        if m:
+            kicker = m.group(1)
+        inner = _html_from_jsonish(text)
+        if inner:
+            return _clean_visual({
+                "title": title or fallback_title,
+                "kicker": kicker,
+                "html": inner,
+            })
+
+    # 3) TITLE/KICKER/HTML 纯文本协议
+    title = fallback_title
+    m = re.search(r"(?im)^\s*TITLE\s*[:：]\s*(.+?)\s*$", text)
+    if m:
+        title = m.group(1).strip()
+    kicker = ""
+    m = re.search(r"(?im)^\s*KICKER\s*[:：]\s*(.+?)\s*$", text)
+    if m:
+        kicker = m.group(1).strip()
+    html = ""
+    m = re.search(r"(?im)^\s*HTML\s*[:：]?\s*$", text)
+    if m:
+        html = text[m.end():].strip()
+    if not html:
+        i = text.find("<div")
+        if i < 0:
+            i = text.find("<table")
+        if i >= 0:
+            html = text[i:]
+    if not html and _looks_like_html(text):
+        html = text
+    if html:
+        return _clean_visual({
+            "title": title or _guess_html_title(html),
+            "kicker": kicker,
+            "html": _strip_fence(html),
+        })
+
+    raise LLMError("AI 未返回可用的视觉化 HTML")
+
+
+def repair_visual_html(raw: str) -> str | None:
+    """修复历史坏数据:html 字段里实际存着一段 JSON。"""
+    text = _strip_fence(str(raw or ""))
+    if text.lstrip().startswith("{") or re.search(r'"html"\s*:', text[:300]):
+        text = _html_from_jsonish(text) or ""
+    if not _looks_like_html(text):
+        return None
+    clean = _sanitize_visual_html(text)
+    plain = re.sub(r"<[^>]+>", "", clean)
+    if len(clean) < 300 or len(plain.strip()) < 80:
+        return None
+    return clean
 
 
 # ---- HTML 白名单清洗:只保留排版标签与内联样式 ----
@@ -749,6 +901,8 @@ def _clean_visual(spec) -> dict:
     raw = spec.get("html") or spec.get("body") or ""
     if not isinstance(raw, str):
         raise LLMError("AI 未返回有效的视觉化 HTML")
+    if raw.lstrip().startswith("{") or re.search(r'"html"\s*:', raw[:300]):
+        raise LLMError("AI 返回的是 JSON 而不是 HTML")
     clean = _sanitize_visual_html(raw)
     text_len = len(re.sub(r"<[^>]+>", "", clean))
     if len(clean) < 300 or text_len < 80:
@@ -774,19 +928,26 @@ def visualize(text: str) -> dict:
     if not text:
         raise LLMError("没有可视觉化的文本")
     out = _chat([
-        {"role": "system", "content": "你是信息设计师,只输出 JSON。"},
+        {"role": "system", "content": "你是信息设计师,严格按用户给定的格式输出。"},
         {"role": "user", "content": VISUAL_PROMPT.replace("{text}", text[:20000])},
     ], temperature=0.4, timeout=240, max_tokens=8000)
     try:
-        spec = _extract_json(out)
-    except LLMError:
-        # 模型偶尔直接吐 HTML 片段:清洗后仍然可用
-        clean = _sanitize_visual_html(out)
-        text_len = len(re.sub(r"<[^>]+>", "", clean))
-        if len(clean) >= 300 and text_len >= 80 and ("<div" in clean or "<table" in clean):
-            return {"title": _guess_html_title(clean), "kicker": "", "html": clean}
-        raise
-    return _clean_visual(spec)
+        return _parse_visual_response(out)
+    except LLMError as first:
+        # 少数模型仍会吐半截 JSON 或超长转义:再试一次,只要求 HTML
+        retry_prompt = (
+            VISUAL_PROMPT.split("【写作】")[0]
+            + "【输出】\n只输出 HTML 片段,从 <div 开始;不要 TITLE/KICKER、不要 JSON、不要 markdown 围栏。\n\n文本:\n"
+            + text[:20000]
+        )
+        try:
+            out2 = _chat([
+                {"role": "system", "content": "你是信息设计师,只输出 HTML 片段。"},
+                {"role": "user", "content": retry_prompt},
+            ], temperature=0.2, timeout=240, max_tokens=8000)
+            return _parse_visual_response(out2)
+        except LLMError:
+            raise first
 
 
 def _entries(v) -> list[dict]:

@@ -1395,8 +1395,18 @@ def _legacy_visual_html(spec: dict) -> str:
     )
 
 
+def _broken_visual_html() -> str:
+    return (
+        '<div style="width:800px;box-sizing:border-box;background:#faf8f5;padding:90px 40px;'
+        "font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"
+        'text-align:center;">'
+        '<p style="font-size:20px;font-weight:700;color:#1f1f1f;">这张视觉化没有生成成功</p>'
+        '<p style="font-size:13px;color:#888;margin-top:12px;">点右上角「重新生成」再试一次。</p></div>'
+    )
+
+
 def _migrate_visuals_html():
-    """旧版视觉化一次性转为 HTML;之后可移除 SVG 渲染引擎。"""
+    """旧版视觉化转为 HTML;并修复历史上把 JSON 误存进 html 的坏数据。"""
     for path in config.RESULT_DIR.glob("*.visuals.json"):
         try:
             items = json.loads(path.read_text(encoding="utf-8"))
@@ -1405,7 +1415,25 @@ def _migrate_visuals_html():
         changed = False
         for item in items:
             spec = item.get("spec") if isinstance(item, dict) else None
-            if not isinstance(spec, dict) or spec.get("html"):
+            if not isinstance(spec, dict):
+                continue
+            html = spec.get("html")
+            if isinstance(html, str) and html.strip() and (
+                html.lstrip().startswith("{") or '"html"' in html[:300]
+            ):
+                fixed = llm_mod.repair_visual_html(html)
+                if fixed:
+                    spec["html"] = fixed
+                    item.pop("broken", None)
+                    log.info("已修复视觉化 JSON 坏数据 %s", item.get("id"))
+                else:
+                    spec["html"] = _broken_visual_html()
+                    item["broken"] = True
+                    log.warning("视觉化坏数据无法修复 %s", item.get("id"))
+                item["spec"] = spec
+                changed = True
+                continue
+            if spec.get("html"):
                 continue
             if spec.get("sections") or spec.get("blocks"):
                 spec["html"] = _legacy_visual_html(spec)

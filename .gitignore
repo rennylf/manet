@@ -11,6 +11,7 @@ models/
 
 # macOS 本地启动器(applet 二进制,机器相关)
 Manet.app/
+/Manet
 nohup.out
 *.log
 

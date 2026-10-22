@@ -511,8 +511,18 @@ function groupParagraphs(sentences) {
 function needSpace(prev, next) { return /[A-Za-z0-9,;:!?"')\]]$/.test(prev) && /^[A-Za-z0-9"'(\[]/.test(next); }
 
 function renderTranscript() {
-  const box = $("#transcript"); box.innerHTML = ""; activeParaIdx = -1;
-  if (!state.sentences.length) { box.innerHTML = '<div class="empty-hint">没有识别到语音内容。</div>'; return; }
+  const box = $("#transcript");
+  // 重渲染前记录阅读锚点,避免切换原文/双语或翻译回来后滚回顶部
+  const prevTop = box.scrollTop;
+  let anchor = null;
+  for (const el of box.querySelectorAll(".para")) {
+    if (el.offsetTop + el.offsetHeight > prevTop + 4) {
+      anchor = { pi: +el.dataset.pi, delta: prevTop - el.offsetTop };
+      break;
+    }
+  }
+  box.innerHTML = "";
+  if (!state.sentences.length) { activeParaIdx = -1; box.innerHTML = '<div class="empty-hint">没有识别到语音内容。</div>'; return; }
   state.paras = groupParagraphs(state.sentences);
   const frag = document.createDocumentFragment();
   state.paras.forEach((p, pi) => {
@@ -536,11 +546,25 @@ function renderTranscript() {
     el.appendChild(text); frag.appendChild(el);
   });
   box.appendChild(frag);
+
+  // 恢复滚动位置:优先按段落锚点,内容变短时自然夹取
+  const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
+  const anchorEl = anchor ? box.querySelector(`.para[data-pi="${anchor.pi}"]`) : null;
+  const restoreTop = Math.min(maxTop, Math.max(0, anchorEl ? anchorEl.offsetTop + anchor.delta : prevTop));
+  const prevBehavior = box.style.scrollBehavior;
+  box.style.scrollBehavior = "auto";          // 重建后瞬时归位,不参与 smooth 动画
+  box.scrollTop = restoreTop;
+  box.style.scrollBehavior = prevBehavior;
+
   const btn = $("#btn-edit");
   btn.disabled = state.displayMode === "zh" && !!state.translation;
   btn.title = btn.disabled ? "请切回「原文」视图再编辑" : "";
   applyTranscriptSearch();
   applyAnnots();
+  // 重建后先恢复当前句高亮,但不触发滚动;下一次 timeupdate 再决定是否跟随
+  if (!state.editing && player.src && player.currentTime > 0) {
+    highlightAt(player.currentTime, {scroll: false});
+  }
 }
 $("#transcript").addEventListener("click", e => {
   if (state.editing || e.target.isContentEditable) return;
@@ -554,6 +578,13 @@ $("#transcript").addEventListener("click", e => {
   const seg = e.target.closest(".seg"), para = e.target.closest(".para");
   const target = seg ? state.sentences[+seg.dataset.idx] : para ? state.sentences[state.paras[+para.dataset.pi].items[0]] : null;
   if (target) seekTo(target.start);
+});
+// 手动滚动时暂停自动跟随,避免刚往上读就被播放进度拽回去
+$("#transcript").addEventListener("pointerdown", pauseFollow);
+$("#transcript").addEventListener("wheel", pauseFollow, {passive: true});
+$("#transcript").addEventListener("touchmove", pauseFollow, {passive: true});
+$("#transcript").addEventListener("keydown", e => {
+  if (["PageUp", "PageDown", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) pauseFollow();
 });
 
 /* ============ 阅读模式 + 批注(高亮 / 评论) ============ */
@@ -740,10 +771,11 @@ function locateAnnot(start) {
   const seg = box.querySelector(`.seg[data-idx="${start}"]`);
   if (!seg) return;
   const para = seg.closest(".para");
-  const r = box.getBoundingClientRect();
   const el = para || seg;
-  const target = Math.max(0, el.offsetTop + el.offsetHeight / 2 - (window.innerHeight / 2 - r.top));
-  box.scrollTo({ top: target, behavior: "smooth" });
+  const target = el.offsetTop + el.offsetHeight / 2 - box.clientHeight * 0.38;
+  pauseFollow();
+  activeParaIdx = -1;
+  scrollTranscript(target);
   box.querySelectorAll(".locate-flash").forEach(x => x.classList.remove("locate-flash"));
   el.classList.add("locate-flash");
   setTimeout(() => el.classList.remove("locate-flash"), 1800);
@@ -751,29 +783,45 @@ function locateAnnot(start) {
 
 /* 播放高亮 + 滚动 */
 let activeParaIdx = -1;
-function highlightAt(t) {
+let followPausedUntil = 0;       // 用户手动滚动后,短暂停止自动跟随
+let scrollLockUntil = 0;         // 避免 timeupdate 连续触发 smooth scroll 互相打断
+
+function pauseFollow() {
+  followPausedUntil = performance.now() + 8000;
+}
+function scrollTranscript(top) {
+  const box = $("#transcript");
+  const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
+  box.scrollTo({ top: Math.min(maxTop, Math.max(0, top)), behavior: "smooth" });
+}
+function highlightAt(t, opts = {}) {
   const sents = state.sentences; if (!sents.length) return;
   let idx = sents.findIndex((s, i) => t >= s.start && (t < s.end || i === sents.length - 1));
   if (idx < 0) idx = t >= sents[sents.length - 1]?.end ? sents.length - 1 : -1;
   if (idx < 0) return;
   const segEl = $(`.seg[data-idx="${idx}"]`);
-  if (!segEl || segEl.classList.contains("active")) return;
-  $$(".seg.active").forEach(el => el.classList.remove("active"));
-  segEl.classList.add("active");
-  if (state.reading) return;          // 阅读模式不做跟随滚动
+  if (!segEl) return;
+  if (!segEl.classList.contains("active")) {
+    $$(".seg.active").forEach(el => el.classList.remove("active"));
+    segEl.classList.add("active");
+  }
+  if (state.reading || opts.scroll === false) return;   // 阅读模式/重建后不跟随
+  if (performance.now() < followPausedUntil) return;    // 用户正在自己滚
   const paraEl = segEl.closest(".para"), pi = +paraEl.dataset.pi, box = $("#transcript");
-  // 滚动目标:让当前段落在「整个网页视口」垂直居中,而非转写框居中
-  // (转写框上方有视频区/下方有播放栏,框内居中在页面上会偏下)
-  const vpCenter = (el) => {
-    const r = box.getBoundingClientRect();
-    return Math.max(0, el.offsetTop + el.offsetHeight / 2 - (window.innerHeight / 2 - r.top));
-  };
+  // 只依赖转写框自身的尺寸:当前段落落在框内约 38% 高度处(视觉偏上)。
+  // 不再使用 window.innerHeight / getBoundingClientRect,滚动过程中不会算出界。
+  const anchorAt = (el) => el.offsetTop + el.offsetHeight / 2 - box.clientHeight * 0.38;
+  const now = performance.now();
+  if (now < scrollLockUntil) return;
+  // 只在段落切换时定位一次;同一段内逐句推进不再做二次校正,
+  // 否则当前句靠近顶部时会反复向下微调,滚动体验很差。
   if (pi !== activeParaIdx) {
     activeParaIdx = pi;
-    box.scrollTo({ top: vpCenter(paraEl), behavior: "smooth" });
-  } else {
-    const r = segEl.offsetTop - box.scrollTop;
-    if (r < 40 || r > box.clientHeight - 60) box.scrollTo({ top: vpCenter(segEl), behavior: "smooth" });
+    const target = anchorAt(paraEl);
+    if (Math.abs(target - box.scrollTop) > 24) {
+      scrollLockUntil = now + 380;
+      scrollTranscript(target);
+    }
   }
 }
 function parseTime(str) {
@@ -786,6 +834,8 @@ function seekTo(sec) {
   if (!player.src || !isFinite(sec)) return;
   player.currentTime = sec + 0.01;
   const p = player.play(); if (p?.catch) p.catch(() => {});
+  followPausedUntil = 0;
+  activeParaIdx = -1;
   highlightAt(sec);
 }
 
@@ -797,7 +847,7 @@ function applyTranscriptSearch(q) {
   if (!q) return;
   let first = null;
   $$(".seg").forEach(el => { if (el.textContent.toLowerCase().includes(q)) { el.classList.add("hit"); if (!first) first = el; } });
-  if (first) { const box = $("#transcript"); box.scrollTo({ top: first.offsetTop - box.clientHeight / 3, behavior: "smooth" }); }
+  if (first) { pauseFollow(); scrollTranscript(first.offsetTop - $("#transcript").clientHeight / 3); }
 }
 
 /* 编辑 */
