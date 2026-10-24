@@ -19,6 +19,3 @@ nohup.out
 .env
 .envrc
 .DS_Store
-
-# 设计与规范内容资产(仅本地,不入库)
-design/

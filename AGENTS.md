@@ -2,11 +2,12 @@
 
 ## UI / 文案变更
 
-- 任何界面设计、样式、组件、文案的调整，**必须先对照 `design/DESIGN.md`**（色彩/字体/布局/组件/语气）
-  与 `design/icons/spec.md`（图标网格/线宽/状态/映射表）。
+- 任何界面设计、样式、组件、文案的调整，**必须先对照本地项目根的 `02-design/DESIGN.md`**（色彩/字体/布局/组件/语气）
+  与 `02-design/icons/spec.md`（图标网格/线宽/状态/映射表）。
 - 与规范冲突时：先更新规范文档，再改代码；禁止一次性特例样式。
-- 新增图标：加入 `app/static/index.html` 顶部 sprite → 重新生成 `design/icons/` 资产 → 登记映射表。
+- 新增图标：加入 `app/static/index.html` 顶部 sprite → 重新生成 `02-design/icons/` 资产 → 登记映射表。
 - 禁止引入 emoji、外部图标库、CSS 框架或构建步骤（前端保持 vanilla JS 单页）。
+- 设计规范与图标资产位于本地项目根 `02-design/`，不在本仓库；单独 clone 本仓库时不包含。
 
 ## Git / 发布
 

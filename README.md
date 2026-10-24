@@ -5,6 +5,9 @@
 
 Manet 是一场个人产品实验：探索知识工作者如何用语音与文本思考、生产意义，并改变生活。
 
+> 本目录是开发仓库（Git 根）。在本地工作区中，产品定义、设计规范与传播物料位于项目根，不在本仓库：
+> `01-product/PRODUCT.md`、`02-design/DESIGN.md`、`04-marketing/`。
+
 它不记录一切。它帮你决定什么值得仍在。
 
 声音在本地转写为文字（Apple Silicon 全本地推理，数据不出机器），
@@ -126,26 +129,34 @@ Base URL / API Key / 模型名、翻译引擎（本地 mlx-lm 或 API）、随�
 
 ## 项目结构
 
+以下为本地工作区中的位置（本仓库根是 `app/`）：
+
 ```
-app/
-├── main.py        # FastAPI 路由:导入/任务/正文/解读/导出/Obsidian/设置
-├── config.py      # 全局配置(环境变量覆盖 + 默认提示词)
-├── settings.py    # 运行时设置(data/settings.json,改后立即生效)
-├── db.py          # SQLite 元数据(任务/档案夹/执行记录)
-├── tasks.py       # 双通道任务队列(heavy/llm)+ 媒体归档 + 重启自愈
-├── transcribe.py  # ffmpeg 抽音 + 语言检测 + 三引擎转写 + 幻觉过滤
-├── llm.py         # 标点/翻译/解读/脑图/问答/随笔/视觉化(map-reduce + 并行)
-├── local_llm.py   # 进程内 mlx-lm(本地翻译)
-└── static/        # 前端单页(vanilla JS,无构建步骤)
-scripts/           # 启动器 + 冒烟测试
-models/            # 本地模型(自动下载,git 忽略)
-data/              # 本机数据:媒体/结果/manet.db/设置(git 忽略)
+03-development/app/
+├── app/               # Python 包
+│   ├── main.py        # FastAPI 路由:导入/任务/正文/解读/导出/Obsidian/设置
+│   ├── config.py      # 全局配置(环境变量覆盖 + 默认提示词)
+│   ├── settings.py    # 运行时设置(data/settings.json,改后立即生效)
+│   ├── db.py          # SQLite 元数据(任务/档案夹/执行记录)
+│   ├── tasks.py       # 双通道任务队列(heavy/llm)+ 媒体归档 + 重启自愈
+│   ├── transcribe.py  # ffmpeg 抽音 + 语言检测 + 三引擎转写 + 幻觉过滤
+│   ├── llm.py         # 标点/翻译/解读/脑图/问答/随笔/视觉化
+│   ├── local_llm.py   # 进程内 mlx-lm(本地翻译)
+│   └── static/        # 前端单页(vanilla JS,无构建步骤)
+├── docs/              # GitHub Pages 落地页
+├── scripts/           # 启动器 + 冒烟测试
+├── models/            # 本地模型(自动下载,git 忽略)
+└── data/              # 本机数据:媒体/结果/manet.db/设置(git 忽略)
 ```
+
+设计规范不在此仓库，位于本地项目根 `02-design/DESIGN.md`；图标资产在 `02-design/icons/`。
 
 ## 设计
 
 Light Academia × Editorial：暖白、墨灰、复古棕、细分隔线；宋体正文，无衬线功能界面。
 克制、安静、书卷气——深夜图书馆，而非喧嚣的效率机器。
+
+完整规范见本地项目根 `02-design/DESIGN.md`。
 
 ## 常见问题
 
