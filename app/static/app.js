@@ -996,6 +996,7 @@ function openExport() {
   $("#ex-dir").value = localStorage.getItem(EX_DIR_KEY) || "~/Downloads/Manet";
   $("#ex-dir-history").innerHTML = exportDirHistory()
     .map(d => `<option value="${escapeHtml(d)}">`).join("");
+  renderCopyPresets();
   exOverlay.hidden = false;
 }
 $("#btn-export").addEventListener("click", openExport);
@@ -1020,6 +1021,83 @@ $("#ex-save").addEventListener("click", async () => {
     toast("已导出:" + r.path, 5000);
     exOverlay.hidden = true;
   } catch (e) { toast("导出失败:" + e.message, 5000); }
+});
+
+/* 复制原文到剪贴板:前缀预设(AI 解读/随笔/视觉化/自定义)+ 原文 */
+const COPY_PREFIX_KEY = "tw_copy_prefixes";
+const COPY_PREFIX_DEFAULTS = [
+  { name: "AI 解读", text: "请解读下面这段内容，梳理核心观点、章节脉络与待办事项。" },
+  { name: "随笔", text: "请根据下面这段内容，写一篇有个人视角的随笔。" },
+  { name: "视觉化", text: "请把下面这段内容整理成信息图结构：给出标题、要点与层级关系。" },
+];
+let copyPrefixes = loadCopyPrefixes();
+let copyCurId = copyPrefixes.length ? copyPrefixes[0].id : null;
+
+function loadCopyPrefixes() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(COPY_PREFIX_KEY) || "[]");
+    if (Array.isArray(arr) && arr.length) return arr;
+  } catch {}
+  return COPY_PREFIX_DEFAULTS.map((p, i) => ({ id: "p" + i, name: p.name, text: p.text }));
+}
+function saveCopyPrefixes() { localStorage.setItem(COPY_PREFIX_KEY, JSON.stringify(copyPrefixes)); }
+function copyCurPreset() { return copyPrefixes.find(p => p.id === copyCurId) || copyPrefixes[0]; }
+function renderCopyPresets() {
+  const sel = $("#ex-copy-preset");
+  if (!copyPrefixes.length) copyPrefixes = loadCopyPrefixes();
+  sel.innerHTML = copyPrefixes.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  if (!copyPrefixes.some(p => p.id === copyCurId)) copyCurId = copyPrefixes[0].id;
+  sel.value = copyCurId;
+  $("#ex-copy-prefix").value = copyCurPreset().text;
+  $("#ex-copy-del").disabled = copyPrefixes.length <= 1;
+}
+function buildOriginalText() {
+  const lines = groupParagraphs(state.sentences).map(p => {
+    let line = "", prev = "";
+    for (const i of p.items) {
+      const t = state.sentences[i].text;
+      if (prev && needSpace(prev, t)) line += " ";
+      line += t; prev = t;
+    }
+    return line;
+  });
+  return lines.join("\n\n").trim();
+}
+$("#ex-copy-preset").addEventListener("change", () => {
+  copyCurPreset().text = $("#ex-copy-prefix").value;
+  copyCurId = $("#ex-copy-preset").value;
+  $("#ex-copy-prefix").value = copyCurPreset().text;
+  saveCopyPrefixes();
+});
+$("#ex-copy-prefix").addEventListener("input", () => {
+  copyCurPreset().text = $("#ex-copy-prefix").value;
+  saveCopyPrefixes();
+});
+$("#ex-copy-new").addEventListener("click", async () => {
+  const name = await askText({ title: "新增前缀预设", placeholder: "预设名称", okText: "新增", icon: "i-copy" });
+  if (!name) return;
+  copyPrefixes.push({ id: "p" + Date.now().toString(36), name, text: "" });
+  copyCurId = copyPrefixes[copyPrefixes.length - 1].id;
+  saveCopyPrefixes(); renderCopyPresets();
+  $("#ex-copy-prefix").focus();
+});
+$("#ex-copy-rename").addEventListener("click", async () => {
+  const p = copyCurPreset();
+  const name = await askText({ title: "重命名预设", value: p.name, placeholder: "预设名称", okText: "保存", icon: "i-copy" });
+  if (!name) return;
+  p.name = name; saveCopyPrefixes(); renderCopyPresets();
+});
+$("#ex-copy-del").addEventListener("click", async () => {
+  if (copyPrefixes.length <= 1) { toast("至少保留一个预设"); return; }
+  if (!(await askConfirm({ title: "删除预设", text: `删除「${copyCurPreset().name}」？`, okText: "删除" }))) return;
+  copyPrefixes = copyPrefixes.filter(p => p.id !== copyCurId);
+  copyCurId = copyPrefixes[0].id; saveCopyPrefixes(); renderCopyPresets();
+});
+$("#ex-copy").addEventListener("click", () => {
+  const text = buildOriginalText();
+  if (!text) { toast("没有可复制的原文"); return; }
+  const prefix = $("#ex-copy-prefix").value.trim();
+  copyText(prefix ? prefix + "\n\n" + text : text);
 });
 
 /* 更多菜单:字幕导出与影音封装(从导出弹窗分离,合并为单一封装动作) */
