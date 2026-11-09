@@ -493,22 +493,39 @@
         <datalist id="ex-dir-history"></datalist>
         <p class="muted tiny">本机路径;文件夹不存在时自动创建。历史路径会记住。</p>
       </div>
-      <div class="set-section">
-        <h5>复制到剪贴板</h5>
-        <div class="field-row">
-          <select id="ex-copy-preset" style="flex:1"></select>
-          <button id="ex-copy-new" class="btn ghost sm" title="新增预设">新增</button>
-          <button id="ex-copy-rename" class="btn ghost sm" title="重命名当前预设">改名</button>
-          <button id="ex-copy-del" class="btn ghost sm" title="删除当前预设">删除</button>
-        </div>
-        <textarea id="ex-copy-prefix" rows="3" placeholder="自定义前缀，复制时会加在原文之前"></textarea>
-        <p class="muted tiny" style="margin-top:8px">复制「前缀 + 原文」到剪贴板，粘贴到任意 AI 对话。</p>
-        <button id="ex-copy" class="btn primary" style="width:100%;margin-top:10px"><svg class="icon"><use href="#i-copy"/></svg>复制原文</button>
+    </div>
+    <div class="modal-foot">
+      <button id="ex-prefix" class="btn ghost"><svg class="icon"><use href="#i-copy"/></svg>前缀设置</button>
+      <div class="spacer"></div>
+      <button id="ex-copy" class="btn ghost">复制</button>
+      <button id="ex-save" class="btn primary"><svg class="icon"><use href="#i-download"/></svg>导出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 复制前缀设置弹窗 -->
+<div id="copy-prefix-overlay" class="modal-overlay" hidden>
+  <div class="modal-card" style="width:460px">
+    <div class="modal-head">
+      <span class="mm-title"><svg class="icon"><use href="#i-copy"/></svg> 复制前缀</span>
+      <div class="spacer"></div>
+      <button id="cp-close" class="icon-btn" title="关闭"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label>当前前缀</label>
+      <select id="cp-preset"></select>
+      <label style="margin-top:12px">前缀内容</label>
+      <textarea id="cp-text" rows="3" placeholder="复制时加在导出内容之前"></textarea>
+      <div class="field-row" style="margin-top:10px">
+        <button id="cp-new" class="btn ghost sm">新增</button>
+        <button id="cp-rename" class="btn ghost sm">改名</button>
+        <button id="cp-del" class="btn ghost sm">删除</button>
       </div>
+      <p class="muted tiny">选「无」则不添加前缀；前缀保存在本机浏览器。</p>
     </div>
     <div class="modal-foot">
       <div class="spacer"></div>
-      <button id="ex-save" class="btn primary"><svg class="icon"><use href="#i-download"/></svg>导出</button>
+      <button id="cp-save" class="btn primary">完成</button>
     </div>
   </div>
 </div>
@@ -552,6 +569,6 @@
 
 <input type="file" id="file-input" hidden>
 <div id="toast" class="toast" hidden></div>
-<script src="app.js?v=39"></script>
+<script src="app.js?v=40"></script>
 </body>
 </html>

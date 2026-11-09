@@ -996,7 +996,6 @@ function openExport() {
   $("#ex-dir").value = localStorage.getItem(EX_DIR_KEY) || "~/Downloads/Manet";
   $("#ex-dir-history").innerHTML = exportDirHistory()
     .map(d => `<option value="${escapeHtml(d)}">`).join("");
-  renderCopyPresets();
   exOverlay.hidden = false;
 }
 $("#btn-export").addEventListener("click", openExport);
@@ -1023,15 +1022,16 @@ $("#ex-save").addEventListener("click", async () => {
   } catch (e) { toast("导出失败:" + e.message, 5000); }
 });
 
-/* 复制原文到剪贴板:前缀预设(AI 解读/随笔/视觉化/自定义)+ 原文 */
+/* 复制到剪贴板:前缀预设(AI 解读/随笔/视觉化/自定义/无)+ 用户勾选的导出内容 */
 const COPY_PREFIX_KEY = "tw_copy_prefixes";
+const COPY_ACTIVE_KEY = "tw_copy_active";
 const COPY_PREFIX_DEFAULTS = [
   { name: "AI 解读", text: "请解读下面这段内容，梳理核心观点、章节脉络与待办事项。" },
   { name: "随笔", text: "请根据下面这段内容，写一篇有个人视角的随笔。" },
   { name: "视觉化", text: "请把下面这段内容整理成信息图结构：给出标题、要点与层级关系。" },
 ];
 let copyPrefixes = loadCopyPrefixes();
-let copyCurId = copyPrefixes.length ? copyPrefixes[0].id : null;
+let copyActive = localStorage.getItem(COPY_ACTIVE_KEY) || "";  // "" = 无前缀
 
 function loadCopyPrefixes() {
   try {
@@ -1041,63 +1041,79 @@ function loadCopyPrefixes() {
   return COPY_PREFIX_DEFAULTS.map((p, i) => ({ id: "p" + i, name: p.name, text: p.text }));
 }
 function saveCopyPrefixes() { localStorage.setItem(COPY_PREFIX_KEY, JSON.stringify(copyPrefixes)); }
-function copyCurPreset() { return copyPrefixes.find(p => p.id === copyCurId) || copyPrefixes[0]; }
-function renderCopyPresets() {
-  const sel = $("#ex-copy-preset");
+function saveCopyActive() { localStorage.setItem(COPY_ACTIVE_KEY, copyActive); }
+function copyCurPreset() { return copyPrefixes.find(p => p.id === copyActive) || null; }
+function renderCopyPrefixModal() {
   if (!copyPrefixes.length) copyPrefixes = loadCopyPrefixes();
-  sel.innerHTML = copyPrefixes.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
-  if (!copyPrefixes.some(p => p.id === copyCurId)) copyCurId = copyPrefixes[0].id;
-  sel.value = copyCurId;
-  $("#ex-copy-prefix").value = copyCurPreset().text;
-  $("#ex-copy-del").disabled = copyPrefixes.length <= 1;
+  if (copyActive && !copyPrefixes.some(p => p.id === copyActive)) copyActive = "";
+  const sel = $("#cp-preset");
+  sel.innerHTML = `<option value="">无</option>`
+    + copyPrefixes.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  sel.value = copyActive || "";
+  updateCpText();
 }
-function buildOriginalText() {
-  const lines = groupParagraphs(state.sentences).map(p => {
-    let line = "", prev = "";
-    for (const i of p.items) {
-      const t = state.sentences[i].text;
-      if (prev && needSpace(prev, t)) line += " ";
-      line += t; prev = t;
-    }
-    return line;
-  });
-  return lines.join("\n\n").trim();
+function updateCpText() {
+  const none = $("#cp-preset").value === "";
+  $("#cp-text").disabled = none;
+  $("#cp-text").value = none ? "" : (copyCurPreset()?.text || "");
+  $("#cp-del").disabled = none || copyPrefixes.length <= 1;
+  $("#cp-rename").disabled = none;
 }
-$("#ex-copy-preset").addEventListener("change", () => {
-  copyCurPreset().text = $("#ex-copy-prefix").value;
-  copyCurId = $("#ex-copy-preset").value;
-  $("#ex-copy-prefix").value = copyCurPreset().text;
-  saveCopyPrefixes();
+function collectExportContents() {
+  return {
+    original: $("#ex-original").checked, translation: $("#ex-translation").checked,
+    timestamps: $("#ex-timestamps").checked, highlights: $("#ex-highlights").checked,
+    comments: $("#ex-comments").checked, analysis: $("#ex-analysis").checked,
+    chat: $("#ex-chat").checked, notes: $("#ex-notes").checked,
+  };
+}
+$("#ex-prefix").addEventListener("click", () => {
+  renderCopyPrefixModal();
+  $("#copy-prefix-overlay").hidden = false;
 });
-$("#ex-copy-prefix").addEventListener("input", () => {
-  copyCurPreset().text = $("#ex-copy-prefix").value;
-  saveCopyPrefixes();
+$("#cp-close").addEventListener("click", () => ($("#copy-prefix-overlay").hidden = true));
+$("#cp-save").addEventListener("click", () => ($("#copy-prefix-overlay").hidden = true));
+$("#cp-preset").addEventListener("change", () => {
+  copyActive = $("#cp-preset").value;
+  saveCopyActive(); updateCpText();
 });
-$("#ex-copy-new").addEventListener("click", async () => {
+$("#cp-text").addEventListener("input", () => {
+  const p = copyCurPreset();
+  if (p) { p.text = $("#cp-text").value; saveCopyPrefixes(); }
+});
+$("#cp-new").addEventListener("click", async () => {
   const name = await askText({ title: "新增前缀预设", placeholder: "预设名称", okText: "新增", icon: "i-copy" });
   if (!name) return;
   copyPrefixes.push({ id: "p" + Date.now().toString(36), name, text: "" });
-  copyCurId = copyPrefixes[copyPrefixes.length - 1].id;
-  saveCopyPrefixes(); renderCopyPresets();
-  $("#ex-copy-prefix").focus();
+  copyActive = copyPrefixes[copyPrefixes.length - 1].id;
+  saveCopyPrefixes(); saveCopyActive(); renderCopyPrefixModal();
+  $("#cp-text").focus();
 });
-$("#ex-copy-rename").addEventListener("click", async () => {
-  const p = copyCurPreset();
+$("#cp-rename").addEventListener("click", async () => {
+  const p = copyCurPreset(); if (!p) return;
   const name = await askText({ title: "重命名预设", value: p.name, placeholder: "预设名称", okText: "保存", icon: "i-copy" });
   if (!name) return;
-  p.name = name; saveCopyPrefixes(); renderCopyPresets();
+  p.name = name; saveCopyPrefixes(); renderCopyPrefixModal();
 });
-$("#ex-copy-del").addEventListener("click", async () => {
-  if (copyPrefixes.length <= 1) { toast("至少保留一个预设"); return; }
-  if (!(await askConfirm({ title: "删除预设", text: `删除「${copyCurPreset().name}」？`, okText: "删除" }))) return;
-  copyPrefixes = copyPrefixes.filter(p => p.id !== copyCurId);
-  copyCurId = copyPrefixes[0].id; saveCopyPrefixes(); renderCopyPresets();
+$("#cp-del").addEventListener("click", async () => {
+  const p = copyCurPreset(); if (!p) return;
+  if (!(await askConfirm({ title: "删除预设", text: `删除「${p.name}」？`, okText: "删除" }))) return;
+  copyPrefixes = copyPrefixes.filter(x => x.id !== p.id);
+  copyActive = ""; saveCopyPrefixes(); saveCopyActive(); renderCopyPrefixModal();
 });
-$("#ex-copy").addEventListener("click", () => {
-  const text = buildOriginalText();
-  if (!text) { toast("没有可复制的原文"); return; }
-  const prefix = $("#ex-copy-prefix").value.trim();
-  copyText(prefix ? prefix + "\n\n" + text : text);
+$("#ex-copy").addEventListener("click", async () => {
+  const contents = collectExportContents();
+  const anyBody = contents.original || contents.translation || contents.highlights
+    || contents.comments || contents.analysis || contents.chat || contents.notes;
+  if (!anyBody) { toast("请至少选择一项导出内容"); return; }
+  try {
+    const r = await api(`/api/tasks/${state.taskId}/export-md-text`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents }),
+    });
+    const prefix = copyActive ? (copyCurPreset()?.text || "").trim() : "";
+    copyText(prefix ? prefix + "\n\n" + r.text : r.text);
+  } catch (e) { toast("复制失败:" + e.message, 5000); }
 });
 
 /* 更多菜单:字幕导出与影音封装(从导出弹窗分离,合并为单一封装动作) */

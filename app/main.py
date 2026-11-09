@@ -739,9 +739,8 @@ class ExportMdReq(BaseModel):
     contents: dict = {}
 
 
-@app.post("/api/tasks/{task_id}/export-md")
-def api_export_md(task_id: str, body: ExportMdReq):
-    """按所选内容导出 Markdown 到指定文件夹(历史路径由前端记忆)。"""
+def _build_export_markdown(task_id: str, contents: dict) -> tuple[str, str]:
+    """按所选内容构建导出 Markdown 文本;返回 (标题, 正文)。文件导出与剪贴板复制共用。"""
     data = tr.load_result(task_id)
     if data is None:
         raise HTTPException(404, "转写结果不存在")
@@ -752,7 +751,7 @@ def api_export_md(task_id: str, body: ExportMdReq):
              or Path(data.get("filename", task_id)).stem)
     sentences = data["sentences"]
     zh = _load_translation(task_id)
-    c = body.contents or {}
+    c = contents or {}
     want_orig = bool(c.get("original", True))
     want_zh = bool(c.get("translation")) and bool(zh)
     ts_on = bool(c.get("timestamps", True))
@@ -865,6 +864,14 @@ def api_export_md(task_id: str, body: ExportMdReq):
         if notes:
             md += ["## 札记", "", notes, ""]
 
+    return title, "\n".join(md)
+
+
+@app.post("/api/tasks/{task_id}/export-md")
+def api_export_md(task_id: str, body: ExportMdReq):
+    """按所选内容导出 Markdown 到指定文件夹(历史路径由前端记忆)。"""
+    title, text = _build_export_markdown(task_id, body.contents or {})
+
     # 目标文件夹:留空默认 ~/Downloads/Manet;相对路径按用户主目录解析
     dirp = Path((body.dir or "").strip() or "~/Downloads/Manet").expanduser()
     if not dirp.is_absolute():
@@ -878,8 +885,15 @@ def api_export_md(task_id: str, body: ExportMdReq):
 
     safe = "".join(ch for ch in title if ch.isalnum() or ch in " _-—，。、").strip()[:80] or task_id
     out_path = dirp / f"{safe}.md"
-    out_path.write_text("\n".join(md), encoding="utf-8")
+    out_path.write_text(text, encoding="utf-8")
     return {"ok": True, "path": str(out_path)}
+
+
+@app.post("/api/tasks/{task_id}/export-md-text")
+def api_export_md_text(task_id: str, body: ExportMdReq):
+    """按所选内容构建导出 Markdown 文本(不写文件),供前端复制到剪贴板。"""
+    _title, text = _build_export_markdown(task_id, body.contents or {})
+    return {"text": text}
 
 
 @app.get("/api/tasks/{task_id}/analysis")
